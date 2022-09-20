@@ -70,7 +70,7 @@
 ;			Build Commands | Command Summary | Using Retromon
 ;--------------------------------------------------------------------------
 ;
-; 	Set editor for tabstops = 4
+;	Set editor for tabstops = 4
 ;	You can also set Github tabstops to 4 permanently from the upper right
 ;	hand corner-> profile icon dropdown->Settings->Appearance->
 ;	Tab size preference
@@ -79,7 +79,7 @@
 ;		https://www.nongnu.org/z80asm
 ;	Flash programmer running on a Rasberry Pi:
 ;		https://github.com/johnwinans/2065-Z80-programmer
-; 	
+;
 ;	Build using included Makefile
 ;	make			; Build retromon.bin only
 ;	make flash		; Build retromon.bin and execute flash utility
@@ -119,7 +119,7 @@
 ;	[DDDD]Destination Address [D/DD]Data [PP]Port
 ;	[BBBB BBBB]32-bit SD Block [LLLL]Location Address
 ;	[CCCC]Size [Esc/Ctrl-c]Abort [Space]Pause
-;	
+;
 ;	Using Retromon:
 ;
 ;	OK, please bear with me on this...
@@ -159,12 +159,12 @@
 ;	Long running displays can be paused/resumed with the space bar.
 ;
 ;	The [D] 'Dump' command shows the currently selected lower 32K SRAM
-;	bank in the first column of the display as well as the memory contents
-;	requested in additional columns. Bank 0 is selected at every boot and
-;	reflects addresses 0x0000-0x7FFF. You can change this low 32K bank
-;	with the [A] 'Select Bank' command to any desired bank 0 - E.
-;	Addresses 0x8000-0xFFFF are always in bank F and not switchable.
-;	The display dump always shows bank F when viewing memory above 0x7FFF.
+;	bank in the first column of the display, the memory contents requested,
+;	and an ASCII representation in additional columns. Bank 0 is selected
+;	at every boot and reflects addresses 0x0000-0x7FFF. You can change this
+;	low 32K bank with the [A] 'Select Bank' command to any desired bank
+;	0 - E. Addresses 0x8000-0xFFFF are always in bank F and not switchable.
+;	The dump display always shows bank F when viewing memory above 0x7FFF.
 ;	The breakpoint, register and stack display also shows the currently
 ;	selected 32K bank in the first column of the display.
 ;
@@ -206,8 +206,8 @@
 ;	display is shown. The breakpoint is automatically cleared at this point.
 ;	A sub command line is presented that allows [Esc] 'Abort' back to
 ;	the monitor main prompt; [Enter] 'Continue' executing code with no more
-;	breakpoints; [Space] 'Dump' a range of memory you specify; and [LLLL]
-;	'New Breakpoint' where a new location address can be specified.
+;	breakpoints; [Space] 'Dump' a range of memory you specify; and
+;	[LLLL] 'New Breakpoint' where a new location address can be specified.
 ;	Execution will immediately resume to the new breakpoint.
 ;
 ;	NOTE: Your code listing should be referenced when choosing breakpoint
@@ -401,7 +401,7 @@ MONIT:
 
 	CALL	CLRBRK			; Clear breakpoint just in case
 
-; Start - command processing loop
+; START - command processing loop
 START:
 	LD		SP,SPTR			; Re-init stack pointer
 	LD		HL,START		
@@ -460,7 +460,7 @@ CMDTBL:
 	DEFW	BDUMP			; Z -> LLLL CCCC dump binary file
 
 ;**************************************************************************
-; 
+;
 ;					C O M M A N D  S U B R O U T I N E S
 ;
 ;**************************************************************************
@@ -1241,7 +1241,7 @@ PEVE:
 	RET						; Return with new BC
 
 ;--------------------------------------------------------------------------
-; SETBRK [U] - set a breakpoint
+; SETBRK [U] - set breakpoint
 ;--------------------------------------------------------------------------
 SETBRK:
 	CALL	DSPMSG
@@ -1323,7 +1323,7 @@ SDWRT:
 	JP		SD_ERROR
 
 ;--------------------------------------------------------------------------
-; BLOAD [Y] - Load a binary file
+; BLOAD [Y] - load a binary file
 ;--------------------------------------------------------------------------
 BLOAD:
 	CALL	DSPMSG
@@ -1353,7 +1353,7 @@ BLOAD1:
 	RET
 
 ;--------------------------------------------------------------------------
-; BDUMP [Z] - Dump a binary file
+; BDUMP [Z] - dump a binary file
 ;--------------------------------------------------------------------------
 BDUMP:
 	CALL	DSPMSG
