@@ -29,7 +29,7 @@
 
 	ADD   	A,1					; Reset all flags
 
-	SUB		2					; Set carry, sign and half-carry flags
+	SUB		2					; Set carry, add/subtract, half-carry and sign flags
 
 	LD		A,0xAA				; Fill registers with identifying values
 	LD		BC,0xBCCB
