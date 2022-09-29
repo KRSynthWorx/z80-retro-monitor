@@ -42,10 +42,10 @@ is presented. SPI/SD card support and the ability to launch CP/M 2.2.
 	Y -> DDDD CCCC load binary file
 	Z -> LLLL CCCC dump binary file
 
-	[SSSS]Start Address [FFFF]Finish Address
-	[DDDD]Destination Address [D/DD]Data [PP]Port
-	[BBBB BBBB]32-bit SD Block [LLLL]Location Address
-	[CCCC]Size [Esc/Ctrl-c]Abort [Space]Pause
+	<SSSS>Start Address <FFFF>Finish Address
+	<DDDD>Destination Address <D/DD>Data <PP>Port
+	<BBBB BBBB>32-bit SD Block <LLLL>Location Address
+	<CCCC>Size <Esc/Ctrl-c>Abort <Space>Pause
 
 ```
 Using Retromon:
@@ -68,7 +68,7 @@ discarded. Additionally we need the low SRAM to use CP/M.
 
 All commands immediately echo a full command name as soon as the
 first command letter is typed. This makes it easier to identify
-commands without a list of commands present, although [H] 'Help' will
+commands without a list of commands present, although <H> 'Help' will
 list all available commands for you. Upper or lower case can be used.
 
 The command prompt is an asterisk. Backspace and DEL are not used.
@@ -78,7 +78,7 @@ ESC (or ctrl-c).
 
 All commands are a single letter. Four hex digits must be typed in
 for an address. Two hex digits must be typed for a byte. An exception
-is the [A] 'Select Bank' command which takes only 1 hex digit.
+is the <A> 'Select Bank' command which takes only 1 hex digit.
 
 The spaces you see between the parameters are displayed by the monitor,
 you don't type them. The command executes as soon as the last required
@@ -86,11 +86,11 @@ value is typed – a RETURN should not be typed.
 
 Long running displays can be paused/resumed with the space bar.
 
-The [D] 'Dump' command shows the currently selected lower 32K SRAM
+The <D> 'Dump' command shows the currently selected lower 32K SRAM
 bank in the first column of the display, the memory contents requested,
 and an ASCII representation in additional columns. Bank 0 is selected
 at every boot and reflects addresses 0x0000-0x7FFF. You can change this
-low 32K bank with the [A] 'Select Bank' command to any desired bank
+low 32K bank with the <A> 'Select Bank' command to any desired bank
 0 - E. Addresses 0x8000-0xFFFF are always in bank F and not switchable.
 The dump display always shows bank F when viewing memory above 0x7FFF.
 The breakpoint, register and stack display also shows the currently
@@ -110,32 +110,32 @@ This monitor is currently located at 0xB000-0xBFFF. Addresses
 0xC000-0xFFFF are reserved for the CP/M loader, BDOS, CCP and BIOS,
 but can still be used if not booting CP/M from the SD card.
 
-The [N] 'Non-Destructive Test' command takes no parameters and runs
+The <N> 'Non-Destructive Test' command takes no parameters and runs
 through the full 64K of SRAM (currently selected 32K low bank and 32k
 high bank F). It skips the handful of bytes used in the memory
 compare/swap routine to prevent crashing. A dot pacifier is displayed
 at the start of each cycle through the memory test. Use ESC (or ctrl-c)
 to exit back to the command prompt. Other low 32K SRAM banks can be
-tested by first selecting another bank with the [A] 'Select Bank'
+tested by first selecting another bank with the <A> 'Select Bank'
 command.
 
-The [T] 'Destructive Test' command skips the 4096 byte page that the
+The <T> 'Destructive Test' command skips the 4096 byte page that the
 monitor and stack are in to prevent crashing. A dot pacifier is also
-displayed as in the [N] command. Use ESC (or ctrl-c) to exit back to
+displayed as in the <N> command. Use ESC (or ctrl-c) to exit back to
 the command prompt. As above, additional SRAM low banks can be tested
-by first selecting the [A] 'Select Bank' command.
+by first selecting the <A> 'Select Bank' command.
 
-The [U] 'Break at' command sets a RST 08 opcode at the address
+The <U> 'Break at' command sets a RST 08 opcode at the address
 specified. The monitor then displays it's asterisk main prompt.
-The [V] 'Clear Breakpoint' command can be used to manually remove an
+The <V> 'Clear Breakpoint' command can be used to manually remove an
 unwanted breakpoint. Setting another breakpoint will clear the previous
 breakpoint and install a new one. Upon execution of the code containing
 the breakpoint, control is returned to the monitor and a register/stack
 display is shown. The breakpoint is automatically cleared at this point.
-A sub command line is presented that allows [Esc] 'Abort' back to
-the monitor main prompt; [Enter] 'Continue' executing code with no more
-breakpoints; [Space] 'Dump' a range of memory you specify; and
-[LLLL] 'New Breakpoint' where a new location address can be specified.
+A sub command line is presented that allows <Esc> 'Abort' back to
+the monitor main prompt; <Enter> 'Continue' executing code with no more
+breakpoints; <Space> 'Dump' a range of memory you specify; and
+<LLLL> 'New Breakpoint' where a new location address can be specified.
 Execution will immediately resume to the new breakpoint.
 
 NOTE: Your code listing should be referenced when choosing breakpoint
@@ -161,8 +161,15 @@ and equate values by name.
 
 ## Version History
 
+* 1.7
+	* Update flag display to correspond to actual flag bit position
+	* Add add/subtract flag
+	* Allow Esc/Ctrl-c from <L> 'Hexload' command
+	* Minor code cleanup/organization
+	* Clarify comments and documentation
+
 * 1.6
-    * Initial Public Release
+	* Initial Public Release
 
 ## License
 
