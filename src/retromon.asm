@@ -3,8 +3,8 @@
 ;			Z 8 0 - R E T R O !  U T I L I T Y  M O N I T O R
 ;
 ;**************************************************************************
-;	retromon.asm v1.6 - a monitor for the <jb> Z80-Retro! SBC
-;	Kenny Maytum - KRSynthWorx - September 18th, 2022
+;	retromon.asm v1.7 - a monitor for the <jb> Z80-Retro! SBC
+;	Kenny Maytum - KRSynthWorx - September 29th, 2022
 ;**************************************************************************
 
 ;**************************************************************************
@@ -72,7 +72,7 @@
 ;
 ;	Set editor for tabstops = 4
 ;	You can also set Github tabstops to 4 permanently from the upper right
-;	hand corner-> profile icon dropdown->Settings->Appearance->
+;	hand corner->profile icon dropdown->Settings->Appearance->
 ;	Tab size preference
 ;
 ;	Build using z80asm v1.8 running on a Raspberry Pi:
@@ -115,10 +115,10 @@
 ;	Y -> DDDD CCCC load binary file
 ;	Z -> LLLL CCCC dump binary file
 ;
-;	[SSSS]Start Address [FFFF]Finish Address
-;	[DDDD]Destination Address [D/DD]Data [PP]Port
-;	[BBBB BBBB]32-bit SD Block [LLLL]Location Address
-;	[CCCC]Size [Esc/Ctrl-c]Abort [Space]Pause
+;	<SSSS>Start Address <FFFF>Finish Address
+;	<DDDD>Destination Address <D/DD>Data <PP>Port
+;	<BBBB BBBB>32-bit SD Block <LLLL>Location Address
+;	<CCCC>Size <Esc/Ctrl-c>Abort <Space>Pause
 ;
 ;	Using Retromon:
 ;
@@ -140,7 +140,7 @@
 ;
 ;	All commands immediately echo a full command name as soon as the
 ;	first command letter is typed. This makes it easier to identify
-;	commands without a list of commands present, although [H] 'Help' will
+;	commands without a list of commands present, although <H> 'Help' will
 ;	list all available commands for you. Upper or lower case can be used.
 ;
 ;	The command prompt is an asterisk. Backspace and DEL are not used.
@@ -150,7 +150,7 @@
 ;
 ;	All commands are a single letter. Four hex digits must be typed in
 ;	for an address. Two hex digits must be typed for a byte. An exception
-;	is the [A] 'Select Bank' command which takes only 1 hex digit.
+;	is the <A> 'Select Bank' command which takes only 1 hex digit.
 ;
 ;	The spaces you see between the parameters are displayed by the monitor,
 ;	you don't type them. The command executes as soon as the last required
@@ -158,11 +158,11 @@
 ;	
 ;	Long running displays can be paused/resumed with the space bar.
 ;
-;	The [D] 'Dump' command shows the currently selected lower 32K SRAM
+;	The <D> 'Dump' command shows the currently selected lower 32K SRAM
 ;	bank in the first column of the display, the memory contents requested,
 ;	and an ASCII representation in additional columns. Bank 0 is selected
 ;	at every boot and reflects addresses 0x0000-0x7FFF. You can change this
-;	low 32K bank with the [A] 'Select Bank' command to any desired bank
+;	low 32K bank with the <A> 'Select Bank' command to any desired bank
 ;	0 - E. Addresses 0x8000-0xFFFF are always in bank F and not switchable.
 ;	The dump display always shows bank F when viewing memory above 0x7FFF.
 ;	The breakpoint, register and stack display also shows the currently
@@ -182,32 +182,32 @@
 ;	0xC000-0xFFFF are reserved for the CP/M loader, BDOS, CCP and BIOS,
 ;	but can still be used if not booting CP/M from the SD card.
 ;
-;	The [N] 'Non-Destructive Test' command takes no parameters and runs
+;	The <N> 'Non-Destructive Test' command takes no parameters and runs
 ;	through the full 64K of SRAM (currently selected 32K low bank and 32k
 ;	high bank F). It skips the handful of bytes used in the memory
 ;	compare/swap routine to prevent crashing. A dot pacifier is displayed
 ;	at the start of each cycle through the memory test. Use ESC (or ctrl-c)
 ;	to exit back to the command prompt. Other low 32K SRAM banks can be
-;	tested by first selecting another bank with the [A] 'Select Bank'
+;	tested by first selecting another bank with the <A> 'Select Bank'
 ;	command.
 ;
-;	The [T] 'Destructive Test' command skips the 4096 byte page that the
+;	The <T> 'Destructive Test' command skips the 4096 byte page that the
 ;	monitor and stack are in to prevent crashing. A dot pacifier is also
-;	displayed as in the [N] command. Use ESC (or ctrl-c) to exit back to
+;	displayed as in the <N> command. Use ESC (or ctrl-c) to exit back to
 ;	the command prompt. As above, additional SRAM low banks can be tested
-;	by first selecting the [A] 'Select Bank' command.
+;	by first selecting the <A> 'Select Bank' command.
 ;
-;	The [U] 'Break at' command sets a RST 08 opcode at the address
+;	The <U> 'Break at' command sets a RST 08 opcode at the address
 ;	specified. The monitor then displays it's asterisk main prompt.
-;	The [V] 'Clear Breakpoint' command can be used to manually remove an
+;	The <V> 'Clear Breakpoint' command can be used to manually remove an
 ;	unwanted breakpoint. Setting another breakpoint will clear the previous
 ;	breakpoint and install a new one. Upon execution of the code containing
 ;	the breakpoint, control is returned to the monitor and a register/stack
 ;	display is shown. The breakpoint is automatically cleared at this point.
-;	A sub command line is presented that allows [Esc] 'Abort' back to
-;	the monitor main prompt; [Enter] 'Continue' executing code with no more
-;	breakpoints; [Space] 'Dump' a range of memory you specify; and
-;	[LLLL] 'New Breakpoint' where a new location address can be specified.
+;	A sub command line is presented that allows <Esc> 'Abort' back to
+;	the monitor main prompt; <Enter> 'Continue' executing code with no more
+;	breakpoints; <Space> 'Dump' a range of memory you specify; and
+;	<LLLL> 'New Breakpoint' where a new location address can be specified.
 ;	Execution will immediately resume to the new breakpoint.
 ;
 ;	NOTE: Your code listing should be referenced when choosing breakpoint
@@ -391,13 +391,13 @@ INITEND:					; End of initialization code
 	ORG		MONSTART		; Final SRAM destination location of monitor
 
 ;--------------------------------------------------------------------------
-; MONIT [X] - monitor entry point
+; MONIT <X> - monitor entry point
 ;--------------------------------------------------------------------------
 MONIT:
 	LD		SP,SPTR			; Initialize stack pointer
 	CALL	DSPMSG			; Display welcome banner
-	DEFB	CR,LF,LF,'Z80-Retro! Monitor v1.6',CR,LF
-	DEFB	'[H] for hel',BIT7+'p'
+	DEFB	CR,LF,LF,'Z80-Retro! Monitor v1.7',CR,LF
+	DEFB	'<H> for hel',BIT7+'p'
 
 	CALL	CLRBRK			; Clear breakpoint just in case
 
@@ -466,7 +466,7 @@ CMDTBL:
 ;**************************************************************************
 
 ;--------------------------------------------------------------------------
-; SBANK [A] - select which low 32K RAM bank to use, 0-E
+; SBANK <A> - select which low 32K RAM bank to use, 0-E
 ;--------------------------------------------------------------------------
 SBANK:
 	CALL	DSPMSG
@@ -500,7 +500,7 @@ SBANK1:
 	RET
 
 ;--------------------------------------------------------------------------
-; DOBOOT [B] - boot CP/M
+; DOBOOT <B> - boot CP/M
 ;--------------------------------------------------------------------------
 DOBOOT:
 	CALL	DSPMSG
@@ -551,7 +551,7 @@ DOBOOT:
 	JP		SD_ERROR
 
 ;--------------------------------------------------------------------------
-; COMPR [C] - compare two blocks of memory
+; COMPR <C> - compare two blocks of memory
 ;--------------------------------------------------------------------------
 COMPR:
 	CALL	DSPMSG
@@ -577,7 +577,7 @@ VMLOP:
 	RET
 
 ;--------------------------------------------------------------------------
-; DUMP [D] - show current 32K bank & dump memory contents in hex and ASCII
+; DUMP <D> - show current 32K bank & dump memory contents in hex and ASCII
 ;--------------------------------------------------------------------------
 DUMP:
 	CALL	DSPMSG
@@ -636,8 +636,8 @@ DSPASC:
 	JR		DMPLINE			; Do another line
 
 ;--------------------------------------------------------------------------
-; EXCHG [E] - exchange block of memory
-; MOVEB [M] - move (copy only) a block of memory
+; EXCHG <E> - exchange block of memory
+; MOVEB <M> - move (copy only) a block of memory
 ;--------------------------------------------------------------------------
 MOVEB:
 	CALL	DSPMSG
@@ -683,7 +683,7 @@ NEXCH:
 	RET
 
 ;--------------------------------------------------------------------------
-; EXEC [G] - execute the code at the address
+; EXEC <G> - execute the code at the address
 ;--------------------------------------------------------------------------
 EXEC:
 	CALL	DSPMSG
@@ -695,7 +695,7 @@ EXEC:
 	JP		(HL)			; Execute from HL
 
 ;--------------------------------------------------------------------------
-; HELP [H] - display command help table
+; HELP <H> - display command help table
 ;--------------------------------------------------------------------------
 HELP:
 	CALL	DSPMSG
@@ -725,15 +725,15 @@ HELP:
 	DEFB	'X -> Reboot monitor',CR,LF
 	DEFB	'Y -> DDDD CCCC load binary file',CR,LF
 	DEFB	'Z -> LLLL CCCC dump binary file',CR,LF,LF
-	DEFB	'[SSSS]Start Address [FFFF]Finish Address',CR,LF
-	DEFB	'[DDDD]Destination Address [D/DD]Data [PP]Port',CR,LF
-	DEFB	'[BBBB BBBB]32-bit SD Block [LLLL]Location Address',CR,LF
-	DEFB	'[CCCC]Size [Esc/Ctrl-c]Abort [Space]Pause',CR,BIT7+LF
+	DEFB	'<SSSS>Start Address <FFFF>Finish Address',CR,LF
+	DEFB	'<DDDD>Destination Address <D/DD>Data <PP>Port',CR,LF
+	DEFB	'<BBBB BBBB>32-bit SD Block <LLLL>Location Address',CR,LF
+	DEFB	'<CCCC>Size <Esc/Ctrl-c>Abort <Space>Pause',CR,BIT7+LF
 
 	RET
 
 ;--------------------------------------------------------------------------
-; PINPT [I] - input data from a port
+; PINPT <I> - input data from a port
 ;--------------------------------------------------------------------------
 PINPT:
 	CALL	DSPMSG
@@ -753,7 +753,7 @@ PINPT:
 	JP		PT2				; Tail call exit
 
 ;--------------------------------------------------------------------------
-; HEXDUMP [J] - dump Intel hex file
+; HEXDUMP <J> - dump Intel hex file
 ;--------------------------------------------------------------------------
 HEXDUMP:
 	CALL	DSPMSG
@@ -856,7 +856,7 @@ PAHCSM:
 	RET
 
 ;--------------------------------------------------------------------------
-; FILL [K] - fill memory with a constant
+; FILL <K> - fill memory with a constant
 ;--------------------------------------------------------------------------
 FILL:
 	CALL	DSPMSG
@@ -878,7 +878,7 @@ ZLOOP:
 	JR		ZLOOP
 
 ;--------------------------------------------------------------------------
-; HEXLOAD [L] - load Intel hex through console port
+; HEXLOAD <L> - load Intel hex through console port
 ;--------------------------------------------------------------------------
 HEXLOAD:
 	CALL	DSPMSG
@@ -890,12 +890,12 @@ RCVLINE:
 	LD		C,0				; Clear echo character flag
 
 WTMARK:
-	CALL	GETCON			; Read character from console
+	CALL	CNTLC			; Read character from console
 	SUB		':'				; Record marker?
 	JR		NZ,WTMARK		; No, keep looking
 
 ; Have start of new record. Save the byte count and load address
-;	The load address is echoed to the screen so the user can
+; The load address is echoed to the screen so the user can
 ;	see the file load progress
 	LD		D,A				; Init checksum in D to zero
 
@@ -934,7 +934,8 @@ DATA:
 ; Flush rest of file as it comes in until no characters
 ;	received for about 1/4 second to prevent incoming file
 ;	data looking like typed monitor commands
-; [n] = number of T states, 51 T states @ 10Mhz = 5.1us. 250msec ~ 0xBF70 loop cycles
+;	[n] = number of T states, 51 T states @ 10Mhz = 5.1us
+;	250msec ~ 0xBF70 loop cycles
 FLUSH:
 	IN		A,(ADTA)		; Clear possible received char
 	LD		DE,0xBF70		; 250msec delay
@@ -951,7 +952,7 @@ FLSHLP:
 	RET
 
 ;--------------------------------------------------------------------------
-; NDMT [N] - non-destructive memory test, skipping compare code below
+; NDMT <N> - non-destructive memory test, skipping compare code below
 ;--------------------------------------------------------------------------
 NDMT:
 	CALL	DSPMSG
@@ -961,8 +962,8 @@ NDMT:
 
 NDCYCLE:
 	LD		A,'.'			; Display '.' before each cycle
-	CALL		PTCN
-	CALL		PAUSE		; Check for ctrl-c, esc, or space
+	CALL	PTCN
+	CALL	PAUSE			; Check for ctrl-c, esc, or space
 
 NDLOP:
 	LD		A,H			
@@ -995,7 +996,7 @@ NDCONT:
 	JR		NDLOP			; Else continue test
 
 ;--------------------------------------------------------------------------
-; POUTP [O] - output data to a port
+; POUTP <O> - output data to a port
 ;--------------------------------------------------------------------------
 POUTP:
 	CALL	DSPMSG
@@ -1019,7 +1020,7 @@ POUTP:
 	JP		(HL)			; Call OUT PP RET
 
 ;--------------------------------------------------------------------------
-; PGM [P] - program memory
+; PGM <P> - program memory
 ;--------------------------------------------------------------------------
 PGM:
 	CALL	DSPMSG
@@ -1056,7 +1057,7 @@ CON2:
 	JR		PGLP
 
 ;--------------------------------------------------------------------------
-; CHKSUM [Q] - compute checksum
+; CHKSUM <Q> - compute checksum
 ;--------------------------------------------------------------------------
 CHKSUM:
 	CALL	DSPMSG
@@ -1076,7 +1077,7 @@ CSLOOP:
 	JP		PT2				; Display checksum and tail call exit
 
 ;--------------------------------------------------------------------------
-; SDREAD [R] - read one SD block (512 bytes)
+; SDREAD <R> - read one SD block (512 bytes)
 ;--------------------------------------------------------------------------
 SDREAD:
 	CALL	DSPMSG
@@ -1101,8 +1102,8 @@ SDREAD:
 	JP		SD_ERROR
 
 ;--------------------------------------------------------------------------
-; SRCH1 [S] - search for one byte
-; SRCH2 [F] - search for two bytes
+; SRCH1 <S> - search for one byte
+; SRCH2 <F> - search for two bytes
 ;--------------------------------------------------------------------------
 SRCH1:
 	CALL	DSPMSG
@@ -1167,7 +1168,7 @@ SKP:
 	RET
 
 ;--------------------------------------------------------------------------
-; TMEM [T] - destructive memory test routine, skipping monitor page
+; TMEM <T> - destructive memory test routine, skipping monitor page
 ;--------------------------------------------------------------------------
 TMEM:
 	CALL	DSPMSG
@@ -1241,7 +1242,7 @@ PEVE:
 	RET						; Return with new BC
 
 ;--------------------------------------------------------------------------
-; SETBRK [U] - set breakpoint
+; SETBRK <U> - set breakpoint
 ;--------------------------------------------------------------------------
 SETBRK:
 	CALL	DSPMSG
@@ -1270,7 +1271,7 @@ SETCODE:
 	RET
 
 ;--------------------------------------------------------------------------
-; CLRCMD [V] - remove breakpoint RST opcode if one is set
+; CLRCMD <V> - remove breakpoint RST opcode if one is set
 ;--------------------------------------------------------------------------
 CLRCMD:
 	LD		HL,(BP_TABLE)	; Get breakpoint address
@@ -1294,7 +1295,7 @@ CLRBRK:
 	RET
 
 ;--------------------------------------------------------------------------
-; SDWRT [W] - write one SD block (512 bytes)
+; SDWRT <W> - write one SD block (512 bytes)
 ;--------------------------------------------------------------------------
 SDWRT:
 	CALL	DSPMSG
@@ -1323,7 +1324,7 @@ SDWRT:
 	JP		SD_ERROR
 
 ;--------------------------------------------------------------------------
-; BLOAD [Y] - load a binary file
+; BLOAD <Y> - load a binary file
 ;--------------------------------------------------------------------------
 BLOAD:
 	CALL	DSPMSG
@@ -1350,10 +1351,11 @@ BLOAD1:
 	LD		A,D
 	OR		E				; Check if done
 	JR		NZ,BLOAD1
-	RET
+
+	JP		FLUSH			; Flush console and tail call exit
 
 ;--------------------------------------------------------------------------
-; BDUMP [Z] - dump a binary file
+; BDUMP <Z> - dump a binary file
 ;--------------------------------------------------------------------------
 BDUMP:
 	CALL	DSPMSG
@@ -1513,17 +1515,17 @@ GO_ON:
 	RET						;	still be equal next time
 
 ;--------------------------------------------------------------------------
-; CNTLC - see if a character has been typed. If not, return
-;	zero true. If ctrl-c or ESC typed, abort and return to
-;	the command loop. Otherwise, return the character typed
+; CNTLC - see if a character is at the console. If not, return
+;	zero true. If ctrl-c or ESC typed, abort and return to the
+;	command loop. Otherwise, return the character in A
 ; Destroys: A
 ;--------------------------------------------------------------------------
 CNTLC:
-	IN		A,(ACTL)		; Anything typed?
+	IN		A,(ACTL)		; Character at console?
 	AND		RDA
 	RET		Z				; No, exit with zero true
 
-	IN		A,(ADTA)		; Get the typed character
+	IN		A,(ADTA)		; Get the character
 	AND		0x7F			; Strip off MSB
 
 	CP		CTRLC
@@ -1584,8 +1586,8 @@ DSPLOOP:
 
 ;--------------------------------------------------------------------------
 ; DUMPREGS - dump registers, flags and stack after a previously set
-;	breakpoint. Offer option to escape to main command loop,
-;	continue execution or set a new breakpoint and then execute
+;	breakpoint. Offer option to escape to main command loop, continue
+;	execution, do a memory dump or set a new breakpoint and then execute
 ;--------------------------------------------------------------------------
 DUMPREGS:
 	LD		(HLTEMP),HL		; Save HL when breakpoint occurred
@@ -1599,9 +1601,9 @@ DUMPREGS:
 	ADD		HL,SP
 	LD		(SPTEMP),HL		; Save SP when breakpoint occurred
 
-	CALL	DSPMSG			; Display register/flags status header
+	CALL	DSPMSG			; Display register/flag status header
 	DEFB	CR,LF,LF,' <Breakpoint Reached>',CR,LF
-	DEFB	'Bnk  PC  Flags  AF   BC   DE   HL   IX   IY   SP '
+	DEFB	'Bnk  PC  _Flag_  AF   BC   DE   HL   IX   IY   SP '
 	DEFB	'  AF',0x27		; 0x27 = ' character
 	DEFB	'  BC',0x27
 	DEFB	'  DE',0x27
@@ -1618,16 +1620,18 @@ DUMPREGS:
 	LD		(BCTEMP),BC
 	LD		(DETEMP),DE		; Save AF BC DE when breakpoint occurred
 
-; Display flags from HL (Shown as ZCSEH; characters displayed when corresponding flag is set)
+; Display flags from HL (Shown as SZHENC; characters displayed when corresponding flag is set)
+	LD		BC,0x8053		; S - sign (0x80 = 10000000, 0x53 = 'S')
+	CALL	MASKFLG
 	LD		BC,0x405A		; Z - zero (0x40 = 01000000, 0x5A = 'Z')
 	CALL	MASKFLG
-	LD		BC,0x0143		; C - carry (0x01 = 00000001, 0x43 = 'C')
-	CALL	MASKFLG
-	LD		BC,0x8053		; S - sign (0x80 = 10000000, 0x53 = 'S')
+	LD		BC,0x1048		; H - half carry (0x10 = 00010000, 0x48 = 'H')
 	CALL	MASKFLG
 	LD		BC,0x0445		; E - even parity (0x04 = 00000100, 0x45 = 'E')
 	CALL	MASKFLG
-	LD		BC,0x1048		; H - half carry (0x10 = 00010000, 0x48 = 'H')
+	LD		BC,0x024E		; N - add/subtract (0x02 = 00000010, 0x4E = 'N')
+	CALL	MASKFLG
+	LD		BC,0x0143		; C - carry (0x01 = 00000001, 0x43 = 'C')
 	CALL	MASKFLG
 
 	CALL	SPCE
@@ -1676,7 +1680,7 @@ DUMPREGS:
 	CALL	PTAD1			; Display contents of SP
 
 	CALL	DSPMSG
-	DEFB	CR,LF,LF,'-Stack Dump- (last 16 bytes',BIT7+')'
+	DEFB	CR,LF,LF,'_Stack Dump_ (last 16 bytes',BIT7+')'
 
 	CALL	CRLF
 	LD		HL,(SPTEMP)		; Get breakpoint SP
@@ -1702,7 +1706,7 @@ DSTACK:
 
 SUBMSG:
 	CALL	DSPMSG
-	DEFB	CR,LF,'[Esc]Abort [Enter]Continue [Space]Dump [LLLL]New Breakpoint?-',BIT7+'>'
+	DEFB	CR,LF,'<Esc>Abort <Enter>Continue <Space>Dump <LLLL>New Breakpoint?-',BIT7+'>'
 
 SUBCMD:
 	LD		C,4				; Count of 4 digits
@@ -2016,7 +2020,7 @@ READ_BLOCKS:
 
 ; Count the block
 	DEC		B
-	JR		Z,.RB_SUCCESS	; Note that A=0 here = success!
+	JR		Z,.RB_SUCCESS	; Note that A = 0 here = success!
 
 ; Increment the target address by 512
 	INC		D
