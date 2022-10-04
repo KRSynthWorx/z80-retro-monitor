@@ -16,7 +16,7 @@ is presented. SPI/SD card support and the ability to launch CP/M 2.2.
 	-Command Summary-
 
 	A -> D select low 32k RAM bank 0-E
-	B -> Boot to CP/M
+	B -> Boot CP/M
 	C -> SSSS FFFF DDDD compare blocks
 	D -> SSSS FFFF dump hex and ASCII
 	E -> SSSS FFFF DDDD exchange block
