@@ -89,7 +89,7 @@
 ;	-Command Summary-
 ;
 ;	A -> D select low 32k RAM bank 0-E
-;	B -> Boot to CP/M
+;	B -> Boot CP/M
 ;	C -> SSSS FFFF DDDD compare blocks
 ;	D -> SSSS FFFF dump hex and ASCII
 ;	E -> SSSS FFFF DDDD exchange block
@@ -433,7 +433,7 @@ START:
 ; Command Table
 CMDTBL:
 	DEFW	SBANK			; A -> D select low 32k RAM bank 0-E
-	DEFW	DOBOOT			; B -> Boot to CP/M
+	DEFW	DOBOOT			; B -> Boot CP/M
 	DEFW	COMPR			; C -> SSSS FFFF DDDD compare blocks
 	DEFW	DUMP			; D -> SSSS FFFF dump hex and ASCII
 	DEFW	EXCHG			; E -> SSSS FFFF DDDD exchange block
@@ -1081,7 +1081,7 @@ CSLOOP:
 ;--------------------------------------------------------------------------
 SDREAD:
 	CALL	DSPMSG
-	DEFB	'Disk Rea',BIT7+'d'
+	DEFB	'SD Rea',BIT7+'d'
 
 	CALL	SD_DETECT		; Check for physical SD card
 	CALL	SD_BOOT			; Boot SD card for block transfers
@@ -1299,7 +1299,7 @@ CLRBRK:
 ;--------------------------------------------------------------------------
 SDWRT:
 	CALL	DSPMSG
-	DEFB	'Disk Writ',BIT7+'e'
+	DEFB	'SD Writ',BIT7+'e'
 
 	CALL	SD_DETECT		; Check for physical SD card
 	CALL	SD_BOOT			; Boot SD card for block transfers
