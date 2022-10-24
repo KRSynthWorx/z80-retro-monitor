@@ -1,14 +1,18 @@
 # Z80-Retro! Monitor
 
-A comprehensive monitor utility for the Z80-Retro! SBC.
+A comprehensive monitor utility for the [Z80-Retro!](https://github.com/johnwinans/2063-Z80) SBC.
 
 ## Description
 
 retromon.asm - a Z80 assembler utility monitor to interact with the
-Z80-Retro! SBC. Commands include memory bank select, dump, program,
+[Z80-Retro!](https://github.com/johnwinans/2063-Z80) SBC. Commands include memory bank select, dump, program,
 search, compare, copy, exchange, test, fill, execute, checksum, and
 file and port I/O. Breakpoints can be set and a register/stack display
 is presented. SPI/SD card support and the ability to launch CP/M 2.2.
+
+## Companion Projects
+
+[Z80-Retro! I2C/SPI Master Interface Board & Drive Library](https://github.com/KRSynthWorx/z80-retro-i2cspi)
 
 ## Help
 
@@ -151,7 +155,7 @@ where you place it.
 Currently configured console port settings are 9600:8N1. See the note
 below in the INIT_CTC_1 function to change these settings.
 
-Semi-Pro Tip... If you include retromon.sym at the beginning of your
+Semi-Pro Tip... If you include [retromon.sym](src/retromon.sym) at the beginning of your
 code, you will have access to all of the Z80-Retro! monitor subroutines
 and equate values by name.
 
