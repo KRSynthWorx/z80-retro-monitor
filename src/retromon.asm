@@ -3,15 +3,18 @@
 ;			Z 8 0 - R E T R O !  U T I L I T Y  M O N I T O R
 ;
 ;**************************************************************************
-;	retromon.asm v1.7 - a monitor for the <jb> Z80-Retro! SBC
-;	Kenny Maytum - KRSynthWorx - September 29th, 2022
+;	retromon.asm v1.8 - a monitor for the <jb> Z80-Retro! SBC
+;	Kenny Maytum - KRSynthWorx - April 25th, 2023
 ;**************************************************************************
 
 ;**************************************************************************
-;		S P I  A N D  S D  C A R D  L I B R A R Y  L I C E N S E
+;							L I C E N S E S
 ;**************************************************************************
 ;
-;	Copyright (C) 2021,2022 John Winans
+;	This utility monitor...
+;
+;	Copyright (C) 2022,2023 Kenny Maytum
+;	https://github.com/KRSynthWorx/z80-retro-monitor 
 ;
 ;	This library is free software; you can redistribute it and/or
 ;	modify it under the terms of the GNU Lesser General Public
@@ -28,7 +31,31 @@
 ;	Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
 ;	02110-1301 USA
 ;
-;	https://github.com/johnwinans/2063-Z80-cpm
+;	https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html
+;
+;--------------------------------------------------------------------------
+;
+;	The SPI/SD Card library algorithms provided by John Winans...
+;
+;	Copyright (C) 2021,2022 John Winans
+;	https://github.com/Z80-Retro/2063-Z80-cpm
+;
+;	This library is free software; you can redistribute it and/or
+;	modify it under the terms of the GNU Lesser General Public
+;	License as published by the Free Software Foundation; either
+;	version 2.1 of the License, or (at your option) any later version.
+;
+;	This library is distributed in the hope that it will be useful,
+;	but WITHOUT ANY WARRANTY; without even the implied warranty of
+;	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+;	Lesser General Public License for more details.
+;
+;	You should have received a copy of the GNU Lesser General Public
+;	License along with this library; if not, write to the Free Software
+;	Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+;	02110-1301 USA
+;
+;	https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html
 ;
 ;**************************************************************************
 
@@ -41,21 +68,21 @@
 ;
 ;	Additional modifications, additions, improvements, and inspiration from
 ;	ideas and works by:
-;		Mike Douglas:	https://deramp.com
-;		Martin Eberhard
+;	Mike Douglas:		https://deramp.com
+;	Martin Eberhard:	https://en.wikipedia.org/wiki/Martin_Eberhard
 ;
 ;	Z80-Retro! SBC, FLASH programmer hardware, SPI and SD card library
 ;	routines closely based on work by John Winans.
 ;
-;	Z80-Retro! project:	https://github.com/johnwinans/2063-Z80
-;	FLASH programmer:	https://github.com/johnwinans/2065-Z80-programmer
-;	CP/M BIOS project:	https://github.com/johnwinans/2063-Z80-cpm
+;	Z80-Retro! project:	https://github.com/Z80-Retro/2063-Z80
+;	FLASH programmer:	https://github.com/Z80-Retro/2065-Z80-programmer
+;	CP/M BIOS project:	https://github.com/Z80-Retro/2063-Z80-cpm
 ;
 ;	John's Basement <jb> YouTube Channel:
 ;	https://www.youtube.com/c/JohnsBasement
 ;
-;**************************************************************************
-;**************************************************************************
+;--------------------------------------------------------------------------
+;
 ;	Many thanks to the above listed people that have made this
 ;	project possible!
 ;
@@ -63,7 +90,6 @@
 ;	KRSynthWorx
 ;	https://github.com/KRSynthWorx/z80-retro-monitor
 ;
-;**************************************************************************
 ;**************************************************************************
 
 ;--------------------------------------------------------------------------
@@ -76,11 +102,23 @@
 ;	Tab size preference
 ;
 ;	Build using z80asm v1.8 running on a Raspberry Pi:
-;		https://www.nongnu.org/z80asm
-;	Flash programmer running on a Rasberry Pi:
-;		https://github.com/johnwinans/2065-Z80-programmer
+;		Source available at https://www.nongnu.org/z80asm
+;		or install binary via command line: sudo apt-get install z80asm
 ;
-;	Build using included Makefile
+;	Flash programmer running on a Rasberry Pi:
+;		https://github.com/Z80-Retro/2065-Z80-programmer
+;
+;	***********************************************************************
+;	***********************************************************************
+;	* NOTE: Before building, set the SRAM size in the EQU at line 313     *
+;	* The default configuration (EQU 0) is for a 512K SRAM chip installed *
+;	*                                                                     *
+;	* NOTE: Enable/Disable SD card partition 1 auto boot at line 314      *
+;	* The default configuration (EQU 1) is auto boot enable               *
+;	***********************************************************************
+;	***********************************************************************
+;
+;	Build using the included Makefile (assumes flash utility is in your PATH)
 ;	make			; Build retromon.bin only
 ;	make flash		; Build retromon.bin and execute flash utility
 ;	make stack_test	; Build a program to test breakpoint/stack display
@@ -88,8 +126,8 @@
 ;
 ;	-Command Summary-
 ;
-;	A -> D select low 32k RAM bank 0-E
-;	B -> Boot CP/M
+;	A -> D select low 32k RAM bank
+;	B -> D boot SD partition
 ;	C -> SSSS FFFF DDDD compare blocks
 ;	D -> SSSS FFFF dump hex and ASCII
 ;	E -> SSSS FFFF DDDD exchange block
@@ -105,12 +143,12 @@
 ;	O -> PP DD output to port
 ;	P -> LLLL program memory
 ;	Q -> SSSS FFFF compute checksum
-;	R -> BBBB BBBB DDDD read block (512 bytes) from SD card
+;	R -> BBBB BBBB DDDD read SD block (512 bytes)
 ;	S -> SSSS FFFF DD one byte search
 ;	T -> SSSS FFFF destructive memory test
 ;	U -> LLLL set breakpoint
 ;	V -> Clear breakpoint
-;	W -> LLLL BBBB BBBB write block (512 bytes) to SD card
+;	W -> LLLL BBBB BBBB write SD block (512 bytes)
 ;	X -> Reboot monitor
 ;	Y -> DDDD CCCC load binary file
 ;	Z -> LLLL CCCC dump binary file
@@ -124,19 +162,47 @@
 ;
 ;	OK, please bear with me on this...
 ;
-;	This monitor runs 100% in a 4096 byte page of SRAM on the Z80-Retro!
+;	This monitor runs entirely in a 4096 byte page of SRAM on the Z80-Retro!
 ;	The stack is located at the end of this page. The device initialization
-;	code is first copied from FLASH to SRAM low bank 0 beginning at 0x0000
-;	on every boot. Next, the monitor code is copied from the FLASH to its
-;	final location in SRAM high bank F. The FLASH is then disabled which
-;	remaps the SRAM into the FLASH address space. Execution continues in the
-;	SRAM low bank to finish device initialization. The code then jumps and
-;	begins execution in the upper bank and the low bank is now available
-;	for any use.
+;	code is first copied from FLASH to SRAM low bank 0 (or E if a 128K SRAM
+;	is installed instead of a 512K SRAM) beginning at 0x0000 on every boot.
+;	Next, the monitor code is copied from the FLASH to its final location in
+;	SRAM high bank F. The FLASH is then disabled which remaps the SRAM into
+;	the FLASH address space. Execution continues in the SRAM low bank to
+;	finish device initialization. The code then jumps and begins execution
+;	in the upper bank and the low bank is now available for any use.
 ;
-;	Whew... ok, All this trouble saves some SRAM as the device
+;	Whew... ok, all this trouble saves some SRAM as the device
 ;	initialization code only needs to execute once on boot and can be
 ;	discarded. Additionally we need the low SRAM to use CP/M.
+;
+;	When auto boot is enabled (see note above) and during the initialization
+;	process, the following occurs. A startup message is displayed along with
+;	a 5 second message and progress dots allowing you to press any key and
+;	skip the auto boot from partition 1 of an SD card. If no SD card is
+;	installed or there is an SD card error, an SD card error message is
+;	displayed followed by the monitor asterisk command prompt. When auto boot
+;	is disabled, the monitor command prompt is immediately displayed.
+;
+;	Up to 4 partitions on the SD card are available and information on these
+;	partitions is located in the Master Boot Record (MBR) beginning at SD
+;	block 0 on the SD card. Partition SD block starting addresses are stored
+;	at the following offset locations from the beginning of the MBR:
+;		Partition 1 -> 0x1BE+0x08
+;		Partition 2 -> 0x1CE+0x08
+;		Partition 3 -> 0x1DE+0x08
+;		Partition 4 -> 0x1EE+0x08
+;	The 32-bit address at these pointer locations indicates the SD card
+;	block number of the beginning of the corresponding partition on the SD
+;	card. Each SD block is 512 bytes in size. The monitor <B> 'Boot SD partition'
+;	command extracts this information from the MBR. It then reads in 32 blocks
+;	(16k bytes) and stores this beginning at 0xC000 in SRAM (which is always in
+;	SRAM bank F). It then sets the A register to a 1 (indicating we are supplying
+;	the partition and starting block information), sets the C register to the
+;	partition number 1 - 4, sets the DE register to the high word of the starting
+;	block address, and sets the HL register to the low word of the starting block
+;	address where the code was read in from. The monitor then jumps to 0xC000
+;	and begins execution. Hopefully something is useful there to execute.
 ;
 ;	All commands immediately echo a full command name as soon as the
 ;	first command letter is typed. This makes it easier to identify
@@ -149,38 +215,42 @@
 ;	ESC (or ctrl-c).
 ;
 ;	All commands are a single letter. Four hex digits must be typed in
-;	for an address. Two hex digits must be typed for a byte. An exception
-;	is the <A> 'Select Bank' command which takes only 1 hex digit.
+;	for an address. Two hex digits must be typed for a byte. Exceptions to 
+;	this are the <A> 'Select Bank' and <B> 'Boot SD partition' command which
+;	accept only 1 hex digit. The <H> 'Help' command indicates the number of
+;	arguments each command accepts.
 ;
 ;	The spaces you see between the parameters are displayed by the monitor,
 ;	you don't type them. The command executes as soon as the last required
 ;	value is typed – a RETURN should not be typed.
-;	
+;
 ;	Long running displays can be paused/resumed with the space bar.
 ;
 ;	The <D> 'Dump' command shows the currently selected lower 32K SRAM
 ;	bank in the first column of the display, the memory contents requested,
-;	and an ASCII representation in additional columns. Bank 0 is selected
-;	at every boot and reflects addresses 0x0000-0x7FFF. You can change this
-;	low 32K bank with the <A> 'Select Bank' command to any desired bank
-;	0 - E. Addresses 0x8000-0xFFFF are always in bank F and not switchable.
-;	The dump display always shows bank F when viewing memory above 0x7FFF.
-;	The breakpoint, register and stack display also shows the currently
-;	selected 32K bank in the first column of the display.
+;	and an ASCII representation in additional columns. Bank 0 (or E if a
+;	128K SRAM is configured) is selected at every boot and reflects
+;	addresses 0x0000-0x7FFF. You can change this low 32K bank with the
+;	<A> 'Select Bank' command to any desired bank 0 - E (or C - E if a
+;	128K SRAM is configured). Addresses 0x8000-0xFFFF are always in bank F
+;	and not switchable. The dump display always shows bank F when viewing
+;	memory above 0x7FFF. The breakpoint, register and stack display also
+;	indicates the currently selected 32K bank in the first column of the
+;	display.
 ;
 ;	NOTE: All memory operation commands operate on the memory within
 ;	the currently selected low 32K bank. Memory operations above 0x7FFF
 ;	(upper 32K bank F) always affect that bank only regardless of the
 ;	currently selected low 32K bank. Currently there is no facility to
-;	transfer memory between banks with this monitor but this can be done
-;	in your own programs by accessing the GPIO_OUT port 0x10 bits 4-7.
-;	Programs changing the SRAM bank should be executed only from the
-;	upper 32K bank beginning at 0x8000 to avoid crashing when the bank
-;	switch occurs. Otherwise the switch over code can be duplicated in
-;	multiple banks to allow uninterrupted execution between low banks.
-;	This monitor is currently located at 0xB000-0xBFFF. Addresses
-;	0xC000-0xFFFF are reserved for the CP/M loader, BDOS, CCP and BIOS,
-;	but can still be used if not booting CP/M from the SD card.
+;	transfer memory between different low banks with this monitor but
+;	this can be done in your own programs by accessing the GPIO_OUT
+;	port 0x10 bits 4-7. Programs changing the SRAM bank should be
+;	executed only from the upper 32K bank beginning at 0x8000 to avoid
+;	crashing when the bank switch occurs. Otherwise the switch over code
+;	can be duplicated in multiple banks to allow uninterrupted execution
+;	between low banks. This monitor is currently located at 0xB000-0xBFFF.
+;	Addresses 0xC000-0xFFFF are reserved for the CP/M loader, BDOS, CCP
+;	and BIOS, but can still be used if not booting CP/M from the SD card.
 ;
 ;	The <N> 'Non-Destructive Test' command takes no parameters and runs
 ;	through the full 64K of SRAM (currently selected 32K low bank and 32k
@@ -198,7 +268,7 @@
 ;	by first selecting the <A> 'Select Bank' command.
 ;
 ;	The <U> 'Break at' command sets a RST 08 opcode at the address
-;	specified. The monitor then displays it's asterisk main prompt.
+;	specified. The monitor then displays its asterisk main command prompt.
 ;	The <V> 'Clear Breakpoint' command can be used to manually remove an
 ;	unwanted breakpoint. Setting another breakpoint will clear the previous
 ;	breakpoint and install a new one. Upon execution of the code containing
@@ -207,8 +277,8 @@
 ;	A sub command line is presented that allows <Esc> 'Abort' back to
 ;	the monitor main prompt; <Enter> 'Continue' executing code with no more
 ;	breakpoints; <Space> 'Dump' a range of memory you specify; and
-;	<LLLL> 'New Breakpoint' where a new location address can be specified.
-;	Execution will immediately resume to the new breakpoint.
+;	<LLLL> 'New BP' where a new location address can be specified. Execution
+;	will immediately resume to the new breakpoint.
 ;
 ;	NOTE: Your code listing should be referenced when choosing breakpoint
 ;	locations if you wish to continue execution or add new breakpoints
@@ -217,36 +287,48 @@
 ;	monitor breakpoint code does not keep track of how long each
 ;	instruction is so the code under test could crash if it is stopped and
 ;	restarted mid-instruction. If you ESC out to the main command prompt
-;	after the first breakpoint for a quick look then it doesn't matter
-;	where you place it.
+;	after the FIRST breakpoint then it doesn't matter where you place it.
 ;
 ;	Currently configured console port settings are 9600:8N1. See the note
-;	below in the INIT_CTC_1 function to change these settings.
+;	below in the .INIT_CTC_1 function to change these settings.
 ;
 ;	Semi-Pro Tip... If you include retromon.sym at the beginning of your
-;	code, you will have access to all of the Z80-Retro! monitor subroutines
-;	and equate values by name.
+;	code, you will have access to all of the Z80-Retro! monitor public
+;	subroutines and equate values by name.
 ;
-;--------------------------------------------------------------------------
 ;--------------------------------------------------------------------------
 
 ; Memory location equates
-MONSTART:	EQU	0xB000			; Beginning of Monitor (4K byte boundary)
-SPTR:		EQU	MONSTART+0x1000	; Stack pointer (beginning of next 4K page)
-MEMSTART:	EQU	0x0000			; Beginning of RAM/FLASH
-LOAD_BASE:	EQU	0xC000			; SD card boot loader image location
-MEM:		EQU	60				; CP/M memory size configuration
-CPM_BASE:	EQU	(MEM-7)*1024	; CP/M origin (0xD400 using above values)
+; NOTE: to work properly with CP/M and SRAM bank switching, valid values
+;	for .MONSTART are 0x8000, 0x9000, 0xA000, or 0xB000
+.MONSTART:	EQU	0xB000				; Beginning of Monitor (4K byte boundary)
+.SPTR:		EQU	.MONSTART+0x1000	; Stack pointer (beginning of next 4K page)
+.MEMSTART:	EQU	0x0000				; Beginning of RAM/FLASH
+.LOAD_BASE:	EQU	0xC000				; SD card boot loader image location
+.MEM:		EQU	0x3C				; CP/M memory size configuration
+.CPM_BASE:	EQU	(.MEM-7)*1024		; CP/M origin (0xD400 using above values)
+
+; Option equates
+;**************************************************************************
+.RAM128K:	EQU	0			; SET TO: 1 = 128K SRAM, 0 = 512K SRAM
+.AUTOSD_EN:	EQU	1			; SET TO: Auto SD Boot 1 = Enable, 0 = Disable
+;**************************************************************************
+if .RAM128K
+	.BANK:	EQU	0x0E		; Valid SRAM banks C-E
+else
+	.BANK:	EQU 0x00		; Valid SRAM banks 0-E
+endif
+; .RAM128K
 
 ; Misc equates
-CR:			EQU	13			; ASCII carriage return
-LF:			EQU	10			; ASCII line feed
-CTRLC:		EQU	3			; ASCII control-c
-ESC:		EQU	27			; ASCII escape
+CR:			EQU	0x0D		; ASCII carriage return
+LF:			EQU	0x0A		; ASCII line feed
+CTRLC:		EQU	0x03		; ASCII control-c
+ESC:		EQU	0x1B		; ASCII escape
 RST1:		EQU	0x0008		; RST1 vector at 0x0008
-HXRLEN:		EQU	16			; Intel hex record length
 BIT7:		EQU 0x80		; MSB set for message string terminator
-LOAD_BLKS:	EQU	(0x10000-LOAD_BASE)/512	; CP/M number of blocks to load
+.HXRLEN:	EQU	0x10		; Intel hex record length
+.LOAD_BLKS:	EQU	(0x10000-.LOAD_BASE)/512	; SD card number of blocks to load
 
 ; Port assignments for GPIO
 GPIO_IN:		EQU 0x00	; GP input port
@@ -288,32 +370,32 @@ GPIO_IN_USER1:		EQU	0x20
 GPIO_IN_SD_DET:		EQU	0x40
 GPIO_IN_SD_MISO:	EQU	0x80
 
-	ORG	MEMSTART			; FLASH start location
+	ORG	.MEMSTART			; FLASH start location
 
 ;--------------------------------------------------------------------------
 ; THE SRAM IS NOT READABLE AT THIS POINT
 ;--------------------------------------------------------------------------
 
-; Select SRAM low bank 0, idle the SD card, idle printer signals
+; Select SRAM low bank, idle the SD card, idle printer signals
 ;	zero printer data port
-	LD		A,GPIO_OUT_SD_MOSI|GPIO_OUT_SD_SSEL|GPIO_OUT_PRN_STB
+	LD		A,GPIO_OUT_SD_MOSI|GPIO_OUT_SD_SSEL|GPIO_OUT_PRN_STB|(.BANK<<4)
 	OUT		(GPIO_OUT),A
 	XOR		A				; Zero A
 	OUT		(PRN_DAT),A
 
 ; Copy the FLASH into the SRAM by reading every byte and
 ;	writing it back into the same address
-	LD		HL,MEMSTART		; Source address (FLASH)
-	LD		DE,MEMSTART		; Destination address (SRAM low bank)
-	LD		BC,INITEND
+	LD		HL,.MEMSTART	; Source address (FLASH)
+	LD		DE,.MEMSTART	; Destination address (SRAM low bank)
+	LD		BC,.INITEND
 	LDIR					; Copy initialization code from the FLASH into
 							;	SRAM at the same address
 
-	LD		HL,INITEND		; Source address (FLASH)
-	LD		DE,MONSTART		; Destination address (SRAM high bank)
-	LD		BC,.END-MONSTART
+	LD		HL,.INITEND		; Source address (FLASH)
+	LD		DE,.MONSTART	; Destination address (SRAM high bank)
+	LD		BC,.END-.MONSTART
 	LDIR					; Copy monitor code from the FLASH into
-							;	SRAM starting at MONSTART
+							;	SRAM starting at .MONSTART
 
 ; Disable the FLASH and run from SRAM only from this point on
 	IN		A,(FLASH_DISABLE)	; Dummy-read this port to disable the FLASH
@@ -343,7 +425,7 @@ GPIO_IN_SD_MISO:	EQU	0x80
 ;--------------------------------------------------------------------------
 ; Init the bit-rate generator for SIO A
 ;--------------------------------------------------------------------------
-INIT_CTC_1:
+.INIT_CTC_1:
 	LD		A,01000111B		; TC follows, Counter, Control, Reset
 	OUT		(CTC_1),A
 	LD		A,12			; 9600 bps
@@ -352,7 +434,7 @@ INIT_CTC_1:
 ;--------------------------------------------------------------------------
 ; Init the bit-rate generator for SIO B
 ;--------------------------------------------------------------------------
-INIT_CTC_2:
+.INIT_CTC_2:
 	LD		A,01000111B		; TC follows, Counter, Control, Reset
 	OUT		(CTC_2),A
 	LD		A,12			; 9600 bps
@@ -362,48 +444,85 @@ INIT_CTC_2:
 ; Init SIO port A/B
 ;--------------------------------------------------------------------------
 	LD		C,ACTL				; Port to write into (port A control)
-	LD		HL,SIO_INIT_WR		; Point to init string
-	LD		B,SIO_INIT_LEN_WR	; Number of bytes to send
+	LD		HL,.SIO_INIT_WR		; Point to init string
+	LD		B,.SIO_INIT_LEN_WR	; Number of bytes to send
 	OTIR						; Write B bytes from (HL) into port in the C reg
 
 	LD		C,BCTL				; Port to write into (port B control)
-	LD		HL,SIO_INIT_WR		; Point to init string
-	LD		B,SIO_INIT_LEN_WR	; Number of bytes to send
+	LD		HL,.SIO_INIT_WR		; Point to init string
+	LD		B,.SIO_INIT_LEN_WR	; Number of bytes to send
 	OTIR						; Write B bytes from (HL) into port in the C reg
 
 ;--------------------------------------------------------------------------
 ; Initialization string for the Z80 SIO
 ;--------------------------------------------------------------------------
-SIO_INIT_WR:
-	DEFB	00011000B			; WR0 = reset everything
-	DEFB	00000100B			; WR0 = select reg 4
-	DEFB	01000100B			; WR4 = /16 N1 (115200 from 1.8432 MHZ clk)
-	DEFB	00000011B			; WR0 = select reg 3
-	DEFB	11000001B			; WR3 = RX enable, 8 bits/char
-	DEFB	00000101B			; WR0 = select reg 5
-	DEFB	01101000B			; WR5 = DTR=0, TX enable, 8 bits/char
-SIO_INIT_LEN_WR:	EQU $-SIO_INIT_WR
+.SIO_INIT_WR:
+	DEFB	00011000B		; WR0 = reset everything
+	DEFB	00000100B		; WR0 = select reg 4
+	DEFB	01000100B		; WR4 = /16 N1 (115200 from 1.8432 MHZ clk)
+	DEFB	00000011B		; WR0 = select reg 3
+	DEFB	11000001B		; WR3 = RX enable, 8 bits/char
+	DEFB	00000101B		; WR0 = select reg 5
+	DEFB	01101000B		; WR5 = DTR=0, TX enable, 8 bits/char
+.SIO_INIT_LEN_WR:	EQU $-.SIO_INIT_WR
 
-	JP		MONSTART		; Jump to monitor now that initialization is complete
+	LD		SP,.SPTR		; Initialize stack pointer
+	CALL	DSPMSG			; Display welcome banner
+	DEFB	CR,LF,'Z80-Retro! Monitor v1.8',CR,LF
+	DEFB	'K.R.Maytum,202',BIT7 + '3'
 
-INITEND:					; End of initialization code
+if .AUTOSD_EN
+	CALL	SD_DETECT		; Check for physical SD card
+	CALL	DSPMSG			; Display SD card auto boot skip message
+	DEFB	CR,LF,'Press any key to skip SD card partition 1 auto boo',BIT7+'t'
 
-	ORG		MONSTART		; Final SRAM destination location of monitor
+	LD		D,0x0E			; Outer loop count, ~5 sec delay at 10Mhz clock
+
+.SDSKIP1:
+	LD		A,'.'
+	CALL	PTCN			; Display progress dots
+
+	LD		BC,0xFFFF		; Inner loop count, ~330msec at 10Mhz clock
+	DEC		D
+	JR		NZ,.SDSKIP2		; Timeout?
+
+	LD		A,1
+	LD		(.PARTITION),A	; Save desired partition number
+	JP		DOBOOT_AUTO		; Boot from SD card
+
+.SDSKIP2:
+	IN		A,(ACTL)
+	AND		RDA				; Character at console?
+	JR		NZ,.SKIP_EXIT	; Yes, exit
+
+	DEC		BC
+	LD		A,B
+	OR		C				; Is BC zero?
+	JR		Z,.SDSKIP1		; Yes, back to outer loop
+	JR		.SDSKIP2		; Else continue checking console
+
+.SKIP_EXIT:
+	IN		A,(ADTA)		; Flush console buffer
+endif
+; .AUTOSD_EN
+
+	JP		.MONSTART		; Jump to monitor now that initialization is complete
+
+.INITEND:					; End of initialization code
+
+	ORG		.MONSTART		; Final SRAM destination location of monitor
 
 ;--------------------------------------------------------------------------
 ; MONIT <X> - monitor entry point
 ;--------------------------------------------------------------------------
 MONIT:
-	LD		SP,SPTR			; Initialize stack pointer
-	CALL	DSPMSG			; Display welcome banner
-	DEFB	CR,LF,LF,'Z80-Retro! Monitor v1.7',CR,LF
+	CALL	DSPMSG			; Display monitor startup message
+	DEFB	CR,LF,LF,'Monitor Ready',CR,LF
 	DEFB	'<H> for hel',BIT7+'p'
-
-	CALL	CLRBRK			; Clear breakpoint just in case
 
 ; START - command processing loop
 START:
-	LD		SP,SPTR			; Re-init stack pointer
+	LD		SP,.SPTR		; Re-init stack pointer
 	LD		HL,START		
 	PUSH	HL				; RET's go back to START
 
@@ -413,12 +532,12 @@ START:
 
 	CALL	GETCON			; Read command from keyboard to A
 	AND		0x5F			; Lower case to upper case
-	CP		'A'
-	RET		C				; Too small, back to START
-	CP		'Z'+1
-	RET		NC				; Too large, back to START
+	CP		'A'				; Carry set if A < 'A'
+	RET		C
+	CP		'Z'+1			; Carry cleared if A > 'Z'
+	RET		NC
 
-	LD		HL,CMDTBL+0x100-2*'A' ; 'A' indexes to start of CMDTBL
+	LD		HL,.CMDTBL+0x100-2*'A' ; 'A' indexes to start of .CMDTBL
 	ADD		A,A				; 2 bytes per entry
 	ADD		A,L
 	LD		L,A
@@ -431,9 +550,9 @@ START:
 	JP		(HL)			; Execute
 
 ; Command Table
-CMDTBL:
-	DEFW	SBANK			; A -> D select low 32k RAM bank 0-E
-	DEFW	DOBOOT			; B -> Boot CP/M
+.CMDTBL:
+	DEFW	SBANK			; A -> D select low 32k RAM bank
+	DEFW	DOBOOT			; B -> D boot SD partition
 	DEFW	COMPR			; C -> SSSS FFFF DDDD compare blocks
 	DEFW	DUMP			; D -> SSSS FFFF dump hex and ASCII
 	DEFW	EXCHG			; E -> SSSS FFFF DDDD exchange block
@@ -449,12 +568,12 @@ CMDTBL:
 	DEFW	POUTP			; O -> PP DD output to port
 	DEFW	PGM				; P -> LLLL program memory
 	DEFW	CHKSUM			; Q -> SSSS FFFF compute checksum
-	DEFW	SDREAD			; R -> BBBB BBBB DDDD read block (512 bytes) from SD card
+	DEFW	SDREAD			; R -> BBBB BBBB DDDD read SD block (512 bytes)
 	DEFW	SRCH1			; S -> SSSS FFFF DD one byte search
 	DEFW	TMEM			; T -> SSSS FFFF destructive memory test
 	DEFW	SETBRK			; U -> LLLL set breakpoint
 	DEFW	CLRCMD			; V -> Clear breakpoint
-	DEFW	SDWRT			; W -> LLLL BBBB BBBB write block (512 bytes) to SD card
+	DEFW	SDWRT			; W -> LLLL BBBB BBBB write SD block (512 bytes)
 	DEFW	MONIT			; X -> Reboot monitor
 	DEFW	BLOAD			; Y -> DDDD CCCC load binary file
 	DEFW	BDUMP			; Z -> LLLL CCCC dump binary file
@@ -466,26 +585,41 @@ CMDTBL:
 ;**************************************************************************
 
 ;--------------------------------------------------------------------------
-; SBANK <A> - select which low 32K RAM bank to use, 0-E
+; SBANK <A> - select which low 32K RAM bank to use.
+;	Valid ranges: 0-E using 512K SRAM, C-E using 128K SRAM
 ;--------------------------------------------------------------------------
 SBANK:
 	CALL	DSPMSG
 	DEFB	'Select Ban',BIT7+'k'
 
-	LD		C,1
-	CALL	AHE0			; Bank number to E
+	LD		C,1				; Read 1 hex digit from command line
+	CALL	AHE0			; Desired bank number to E
 
 	LD		A,E
-	CP		0x0F			; Only allow 0-E
-	JR		NZ,SBANK1
 
-	CALL	DSPMSG
-	DEFB	'Bank 0-E Onl',BIT7+'y'
+if .RAM128K
+	CP		0x0C
+	JR		C,.SBANK_ERR	; Error, carry set if < 0x0C
+	CP		0x0E+1
+	JR		NC,.SBANK_ERR	; Error, carry cleared if > 0x0E
+	JR		.SBANK1
+
+.SBANK_ERR:
+	CALL	DSPMSG			; Display range error message
+	DEFB	'Bank C-E onl',BIT7+'y'
+else	
+	CP		0x0F
+	JR		NZ,.SBANK1		; OK if 0-E selected
+
+	CALL	DSPMSG			; Display range error message
+	DEFB	'Bank 0-E onl',BIT7+'y'
+endif
+; .RAM128K
 
 	RET
 
-SBANK1:
-	LD		(CBANK),A		; Save current bank number
+.SBANK1:
+	LD		(.CBANK),A		; Save current bank number
 	ADD		A,A				; Move bank number to upper nibble
 	ADD		A,A
 	ADD		A,A
@@ -500,53 +634,94 @@ SBANK1:
 	RET
 
 ;--------------------------------------------------------------------------
-; DOBOOT <B> - boot CP/M
+; DOBOOT <B> - boot SD partition
+; DOBOOT_AUTO - autoboot from partition number in .PARTITION
 ;--------------------------------------------------------------------------
 DOBOOT:
 	CALL	DSPMSG
-	DEFB	'Boot CP/',BIT7+'M'
+	DEFB	'Boot SD partitio',BIT7+'n'
+	
+	LD		C,1				; Read 1 hex digit from command line
+	CALL	AHE0			; Get desired partition in E
 
+	LD		A,E
+	CP		1
+	JP		C,START			; Carry set if A < 1
+	CP		4+1
+	JP		NC,START		; Carry cleared if A > 4
+
+	LD		(.PARTITION),A	; Save partition number
 	CALL	SD_DETECT		; Check for physical SD card
-	LD		SP,LOAD_BASE
+
+DOBOOT_AUTO:	
 	CALL	SD_BOOT			; Boot SD card for block transfers
 
-; Read the MBR
+; Read the MBR (SD block 0, 512 bytes), store in SRAM beginning at .LOAD_BASE
 ; Push the starting block number onto the stack in little-endian order
 	LD		HL,0			; SD card block number to read
 	PUSH	HL				; High half
 	PUSH	HL				; Low half
-	LD		DE,LOAD_BASE	; Where to read the sector data into
+	LD		DE,.LOAD_BASE	; Destination of read sector data
 	CALL	SD_CMD17
 	POP		HL				; Remove the block number from the stack
 	POP		HL
 
-	OR		A
+	OR		A				; Check SD_CMD17 return code
 	JR		Z,.BOOT_CMD17_OK
 
 	JP		SD_ERROR
 
-; Read the first sectors of the first partition
+; Read the 32 SD blocks of the desired partition
 .BOOT_CMD17_OK:
-	LD		IX,LOAD_BASE+0x01BE+0x08
+	LD		A,(.PARTITION)	; Get desired partition number
+	CP		1
+	JR		Z,.PART_1
+	CP		2
+	JR		Z,.PART_2
+	CP		3
+	JR		Z,.PART_3
+
+	LD		IX,.LOAD_BASE+0x01EE+0x08
+	JR		.DOBOOT1		; Else partition 4
+
+.PART_1:
+	LD		IX,.LOAD_BASE+0x01BE+0x08
+	JR		.DOBOOT1
+
+.PART_2:
+	LD		IX,.LOAD_BASE+0x01CE+0x08
+	JR		.DOBOOT1
+
+.PART_3:
+	LD		IX,.LOAD_BASE+0x01DE+0x08
+	
+.DOBOOT1:
 	LD		D,(IX+3)
 	LD		E,(IX+2)
-	PUSH	DE
+	PUSH	DE				; DE -> high word of block address to load
 	LD		D,(IX+1)
 	LD		E,(IX+0)
-	PUSH	DE
+	PUSH	DE				; DE -> low word of block address to load
 
-	LD		DE,LOAD_BASE	; Where to read the sector data into
-	LD		B,LOAD_BLKS		; Number of blocks to load (should be 32 == 16K)
+	LD		DE,.LOAD_BASE	; Destination of read sector data
+	LD		B,.LOAD_BLKS	; Number of blocks to load (should be 32 == 16K)
 
 	CALL	DSPMSG
-	DEFB	'- Loadin',BIT7+'g'
+	DEFB	CR,LF,'Partitio',BIT7+'n'
+
+	LD		A,(.PARTITION)
+	CALL	BINL			; Display partition number
+	CALL	SPCE
 
 	CALL	READ_BLOCKS
-	POP		DE				; Remove the 32-bit block number from the stack
-	POP		DE
+	POP		HL				; HL -> low word of block address loaded
+	POP		DE				; DE -> high word of block address loaded
 
-	OR		A
-	JP		Z,LOAD_BASE		; Run the code that we just read in from the SD card
+	OR		A				; Check READ_BLOCKS return code
+	LD		A,(.PARTITION)
+	LD		C,A				; C -> partition number loaded
+	LD		A,1				; Boot code version number 1 (for selectable partitions)
+	JP		Z,.LOAD_BASE	; If no error, run the code read in from the SD card
 
 	JP		SD_ERROR
 
@@ -562,7 +737,7 @@ COMPR:
 	CALL	AHEX
 	EX		DE,HL			; DE = source end, HL = compare start
 
-VMLOP:
+.VMLOP:
 	LD		A,(HL)			; A = compare byte
 	INC		HL
 	EX		(SP),HL			; HL -> source byte
@@ -571,7 +746,7 @@ VMLOP:
 	CALL	NZ,ERR			; Display the error
 	CALL	BMP				; Increment pointers
 	EX		(SP),HL			; HL -> compare byte
-	JR		NZ,VMLOP
+	JR		NZ,.VMLOP
 
 	POP		HL				; Remove temp pointer from stack
 	RET
@@ -583,57 +758,57 @@ DUMP:
 	CALL	DSPMSG
 	DEFB	'Dum',BIT7+'p'
 
-	CALL	TAHEX			; HL = start address, DE = end address
+	CALL	TAHEX			; HL -> start address, DE -> end address
 
-DMPLINE:
+.DMPLINE:
 	PUSH	HL				; Save start address
 	CALL	CRLF
-	CALL	DSPBANK			; Display current RAM bank
+	CALL	DSPBANK			; Display current SRAM bank
 	CALL	PTAD1			; Display current address
 	CALL	SPCE			; Add an extra space
 	LD		C,8				; 8 locations per line
-	LD		B,2				; Run DMPHEX twice
+	LD		B,2				; Run .DMPHEX twice
 
 ; Dump line in hex
-DMPHEX:
+.DMPHEX:
 	LD		A,(HL)			; A = byte to display
 	CALL	PT2				; Display it
 	CALL	SPCE
 	INC		HL
 	DEC		C				; Decrement line byte count
-	JR		NZ,DMPHEX		; Loop until 8 bytes done
+	JR		NZ,.DMPHEX		; Loop until 8 bytes done
 
 	CALL 	SPCE
 	LD		C,8				; Do 8 more bytes
 	DEC		B
-	JR		NZ,DMPHEX
+	JR		NZ,.DMPHEX
 
 ; Dump line in ASCII
 	CALL	SPCE
 	POP		HL				; HL -> start of line
 	LD		C,16			; 16 locations per line
 
-DMPASC:
+.DMPASC:
 	LD		A,(HL)			; A = byte to display
-	CP		0x7F			; Test if >= 0x7F
-	JR		NC,DSPDOT		; Non printable, show '.'
+	CP		0x7F			; Clear carry if >= 0x7F
+	JR		NC,.DSPDOT		; Non printable, show '.'
 
 	CP		' '				; Displayable character?
-	JR		NC,DSPASC		; Yes, go display it
+	JR		NC,.DSPASC		; Yes, go display it
 
-DSPDOT:
+.DSPDOT:
 	LD		A,'.'			; Display '.' instead
 
-DSPASC:
+.DSPASC:
 	CALL	PTCN			; Display the character
 	CALL	BMP				; Increment HL, possibly DE
 	DEC		C				; Decrement line byte count
-	JR		NZ,DMPASC		; Loop until 16 bytes done
+	JR		NZ,.DMPASC		; Loop until 16 bytes done
 
 	CALL	BMP				; Done?
 	RET		Z				; Yes
 	DEC		HL				; Else undo extra bump of HL
-	JR		DMPLINE			; Do another line
+	JR		.DMPLINE		; Do another line
 
 ;--------------------------------------------------------------------------
 ; EXCHG <E> - exchange block of memory
@@ -644,14 +819,14 @@ MOVEB:
 	DEFB	'Mov',BIT7+'e'
 
 	XOR		A				; A = 0 means "move" command
-	JR		DOMOVE
+	JR		.DOMOVE
 
 EXCHG:
 	CALL	DSPMSG
 	DEFB	'Exchang',BIT7+'e'
 							; A returned <> 0 means "exchange" command
 
-DOMOVE:
+.DOMOVE:
 	LD		B,A				; Save move/exchange flag in B
 	CALL	TAHEX			; Read addresses
 	PUSH	HL
@@ -659,25 +834,25 @@ DOMOVE:
 	EX		DE,HL
 	EX		(SP),HL			; HL -> start, DE -> end, stack has destination
 
-MLOOP:
+.MLOOP:
 	LD		C,(HL)			; C = byte from source
 	EX		(SP),HL			; HL -> destination
 
 	LD		A,B				; Move or exchange?
 	OR		A
-	JR		Z,NEXCH			; 0 means move only
+	JR		Z,.NEXCH		; 0 means move only
 
 	LD		A,(HL)			; A = from destination
 	EX		(SP),HL			; HL -> source
 	LD		(HL),A			; Move destination to source
 	EX		(SP),HL			; HL -> destination
 
-NEXCH:
+.NEXCH:
 	LD		(HL),C			; Move source to destination
 	INC		HL				; Increment destination
 	EX		(SP),HL			; HL -> source
 	CALL	BMP				; Increment source and compare to end
-	JR		NZ,MLOOP
+	JR		NZ,.MLOOP
 
 	POP		HL				; Remove temp pointer from stack
 	RET
@@ -689,7 +864,7 @@ EXEC:
 	CALL	DSPMSG
 	DEFB	'Got',BIT7+'o'
 
-	CALL	AHEX			; DE = address to begin execution
+	CALL	AHEX			; DE -> address to begin execution
 	EX		DE,HL
 
 	JP		(HL)			; Execute from HL
@@ -699,8 +874,8 @@ EXEC:
 ;--------------------------------------------------------------------------
 HELP:
 	CALL	DSPMSG
-	DEFB	CR,LF,'A -> D select low 32k RAM bank 0-E',CR,LF
-	DEFB	'B -> Boot CP/M',CR,LF
+	DEFB	CR,LF,'A -> D select low 32k RAM bank',CR,LF
+	DEFB	'B -> Boot SD partition',CR,LF
 	DEFB	'C -> SSSS FFFF DDDD compare block',CR,LF
 	DEFB	'D -> SSSS FFFF dump hex and ASCII',CR,LF
 	DEFB	'E -> SSSS FFFF DDDD exchange block',CR,LF
@@ -716,12 +891,12 @@ HELP:
 	DEFB	'O -> PP DD output to port',CR,LF
 	DEFB	'P -> LLLL program memory',CR,LF
 	DEFB	'Q -> SSSS FFFF compute checksum',CR,LF
-	DEFB	'R -> BBBB BBBB DDDD read block (512 bytes) from SD card',CR,LF
+	DEFB	'R -> BBBB BBBB DDDD read SD block (512 bytes)',CR,LF
 	DEFB	'S -> SSSS FFFF DD one byte search',CR,LF
 	DEFB	'T -> SSSS FFFF destructive memory test',CR,LF
 	DEFB	'U -> LLLL set breakpoint',CR,LF
 	DEFB	'V -> Clear breakpoint',CR,LF
-	DEFB	'W -> LLLL BBBB BBBB write block (512 bytes) to SD card',CR,LF
+	DEFB	'W -> LLLL BBBB BBBB write SD block (512 bytes)',CR,LF
 	DEFB	'X -> Reboot monitor',CR,LF
 	DEFB	'Y -> DDDD CCCC load binary file',CR,LF
 	DEFB	'Z -> LLLL CCCC dump binary file',CR,LF,LF
@@ -739,16 +914,16 @@ PINPT:
 	CALL	DSPMSG
 	DEFB	'I',BIT7+'n'
 
-	LD		C,2
+	LD		C,2				; Read 2 hex digits from command line
 	CALL	AHE0			; Port number to E
 
-	LD		HL,PORT_RW+2	; Form IN PP RET in memory at HL
+	LD		HL,.PORT_RW+2	; Form IN PP RET in memory at HL
 	LD		(HL),0xC9		; RET opcode
 	DEC		HL
 	LD		(HL),E			; Input port of IN instruction
 	DEC		HL
 	LD		(HL),0xDB		; IN opcode
-	CALL	PORT_RW			; Call IN PP RET
+	CALL	.PORT_RW		; Call IN PP RET
 
 	JP		PT2				; Tail call exit
 
@@ -759,7 +934,7 @@ HEXDUMP:
 	CALL	DSPMSG
 	DEFB	'Hexdum',BIT7+'p'
 
-	CALL	TAHEX			; HL = start address, DE = end address
+	CALL	TAHEX			; HL -> start address, DE -> end address
 
 	EX		DE,HL
 	AND		A				; Clear carry
@@ -767,68 +942,68 @@ HEXDUMP:
 	INC		HL				; Add 1
 	EX		DE,HL			; DE = byte count
 
-; Loop to send requested data in HXRLEN-byte records
+; Loop to send requested data in .HXRLEN-byte records
 ; Send record-start
-HXLINE:
+.HXLINE:
 	CALL	CRLF			; Send CRLF
 
-	LD		BC,HXRLEN*256	; BC = bytes/line
+	LD		BC,.HXRLEN*256	; BC = bytes/line
 							; C = 0 initial checksum
 	LD		A,':'			; Record start
 	CALL	PTCN
 
-; Compute this record length (B=HXRLEN here)
+; Compute this record length (B=.HXRLEN here)
 	LD		A,E				; Short last line?
 	SUB		B				; Normal bytes/line
 	LD		A,D				; 16-bit subtract
 	SBC		A,C				; C = 0 here
-	JR		NC,HXLIN1		; N:full line
+	JR		NC,.HXLIN1		; N:full line
 	LD		B,E				; Y:short line
 
-HXLIN1:
+.HXLIN1:
 ; If byte count is 0 then go finish EOF record
 	LD		A,B
 	OR		A
-	JR		Z,HXEOF
+	JR		Z,.HXEOF
 
 ; Send record byte count = A, checksum = 0 in C here
-	CALL	PAHCSM
+	CALL	.PAHCSM
 
 ; Send the address at the beginning of each line,
 ; computing the checksum in C
-	CALL	PHLHEX			; HL = address
+	CALL	.PHLHEX			; HL = address
 
 ; Send the record type (00), checksum in C
 	XOR		A
-	CALL	PAHCSM
+	CALL	.PAHCSM
 
 ; Send B bytes of hex data on each line, computing the checksum in C
-HXLOOP:
-	CALL	PMHCSM			; Send character
+.HXLOOP:
+	CALL	.PMHCSM			; Send character
 
 	DEC		DE
 	INC		HL
 	DEC		B				; Next
-	JR		NZ,HXLOOP
+	JR		NZ,.HXLOOP
 
 ; Compute & send the checksum
 	XOR		A
 	SUB		C
 	INC		B				; Send character
-	CALL	PAHCSM
+	CALL	.PAHCSM
 
 ; Give the user a chance to break in at the end of each line
 	CALL	PAUSE
-	JR		HXLINE			; Next record
+	JR		.HXLINE			; Next record
 
-HXEOF:
+.HXEOF:
 	LD		B,3				; 3 bytes for start of EOF
 
-HXELUP:
+.HXELUP:
 	XOR		A
 	CALL	PT2				; Send 0x00 characters
 	DEC		B
-	JR		NZ,HXELUP
+	JR		NZ,.HXELUP
 
 	LD		A,0x01
 	CALL	PT2				; Send 0x01 character, 4th EOF character
@@ -837,17 +1012,17 @@ HXELUP:
 
 	JP		CRLF			; Tail call exit
 
-PHLHEX:
+.PHLHEX:
 	LD		A,H				; H first
-	CALL	PAHCSM
+	CALL	.PAHCSM
 	LD		A,L				; Then L
 
-	DEFB	0xFE			; CP opcode, skip over PMHCSM
+	DEFB	0xFE			; CP opcode, skip over .PMHCSM
 
-PMHCSM:
+.PMHCSM:
 	LD		A,(HL)			; Get byte to send
 
-PAHCSM:
+.PAHCSM:
 	PUSH	AF
 	ADD		A,C				; Compute checksum
 	LD		C,A
@@ -864,18 +1039,18 @@ FILL:
 
 	CALL	TAHEX			; Read addresses
 	PUSH	HL				; Start address on stack
-	LD		C,2				; Reading 2 digits
+	LD		C,2				; Read 2 hex digits from command line
 	CALL	AHE0			; Input fill byte
 	EX		DE,HL			; Byte to write from E to L
 	EX		(SP),HL			; HL = start address, stack = fill byte
 	POP		BC				; C = fill byte from stack
 
-ZLOOP:
+.ZLOOP:
 	LD		(HL),C			; Write into memory
 	CALL	BMP				; Compare address, increment HL
 	RET		Z				; Leave when done
 
-	JR		ZLOOP
+	JR		.ZLOOP
 
 ;--------------------------------------------------------------------------
 ; HEXLOAD <L> - load Intel hex through console port
@@ -885,24 +1060,24 @@ HEXLOAD:
 	DEFB	'Hexload - Paste hex file..',BIT7+'.'
 
 ; Receive a hex file line
-RCVLINE:
+.RCVLINE:
 	CALL	CRLF
 	LD		C,0				; Clear echo character flag
 
-WTMARK:
+.WTMARK:
 	CALL	CNTLC			; Read character from console
 	SUB		':'				; Record marker?
-	JR		NZ,WTMARK		; No, keep looking
+	JR		NZ,.WTMARK		; No, keep looking
 
 ; Have start of new record. Save the byte count and load address
 ; The load address is echoed to the screen so the user can
-;	see the file load progress
+;	see the file load progress. Note A is zero here from above SUB ':'
 	LD		D,A				; Init checksum in D to zero
 
 	CALL	IBYTE			; Input two hex digits (byte count)
 	LD		A,E				; Test for zero byte count
 	OR		A
-	JR		Z,FLUSH			; Count of 0 means end
+	JR		Z,.FLUSH		; Count of 0 means end
 
 	LD		B,E				; B = byte count on line
 
@@ -916,16 +1091,16 @@ WTMARK:
 	CALL	IBYTE			; Ignore/discard record type
 
 ; Receive the data bytes of the record and move to memory
-DATA:
+.DATA:
 	CALL	IBYTE			; Read a data byte (2 hex digits)
 	LD		(HL),E			; Store in memory
 	INC		HL
 	DEC		B
-	JR		NZ,DATA
+	JR		NZ,.DATA
 
 ; Validate checksum
 	CALL	IBYTE			; Read and add checksum
-	JR		Z,RCVLINE		; Checksum good, receive next line
+	JR		Z,.RCVLINE		; Checksum good, receive next line
 
 	CALL	DSPMSG			; Display error message
 	DEFB	' Erro',BIT7+'r'
@@ -936,19 +1111,19 @@ DATA:
 ;	data looking like typed monitor commands
 ;	[n] = number of T states, 51 T states @ 10Mhz = 5.1us
 ;	250msec ~ 0xBF70 loop cycles
-FLUSH:
+.FLUSH:
 	IN		A,(ADTA)		; Clear possible received char
 	LD		DE,0xBF70		; 250msec delay
 
-FLSHLP:
+.FLSHLP:
 	IN		A,(ACTL)		; [11] Look for character on console
 	AND		RDA				; [7]
-	JR		NZ,FLUSH		; [7F/12T] Data received, restart
+	JR		NZ,.FLUSH		; [7F/12T] Data received, restart
 
 	DEC		DE				; [6] Decrement timeout
 	LD		A,D				; [4]
 	OR		E				; [4]
-	JR		NZ,FLSHLP		; [7F/12T] Loop until zero
+	JR		NZ,.FLSHLP		; [7F/12T] Loop until zero
 	RET
 
 ;--------------------------------------------------------------------------
@@ -958,27 +1133,27 @@ NDMT:
 	CALL	DSPMSG
 	DEFB	'Non-Destructive Tes',BIT7+'t'
 
-	LD		HL,MEMSTART		; Start address
+	LD		HL,.MEMSTART	; Start address
 
-NDCYCLE:
+.NDCYCLE:
 	LD		A,'.'			; Display '.' before each cycle
 	CALL	PTCN
 	CALL	PAUSE			; Check for ctrl-c, esc, or space
 
-NDLOP:
+.NDLOP:
 	LD		A,H			
 	AND		0xF0			; Upper nibble of H
-	CP		MONSTART>>8		; On monitor 4k page?
-	JR		NZ,DOCMP		; No, ok to compare
+	CP		.MONSTART>>8	; On monitor 4k page?
+	JR		NZ,.DOCMP		; No, ok to compare
 
 	LD		A,L				; Get LSB of current address
-	CP		DOCMP&0xFF		; Address < LSB DOCMP?
-	JR		C,DOCMP			; Yes, ok to compare
+	CP		.DOCMP&0xFF		; Address < LSB .DOCMP?
+	JR		C,.DOCMP		; Yes, ok to compare
 
-	CP		NDCONT&0xFF		; Address < LSB NDCONT?
-	JR		C,NDCONT		; Yes, in compare code so skip memory test
+	CP		.NDCONT&0xFF	; Address < LSB .NDCONT?
+	JR		C,.NDCONT		; Yes, in compare code so skip memory test
 
-DOCMP:
+.DOCMP:
 	LD		A,(HL)			; Read from address in HL
 	LD		B,A				; Save original value in B
 	CPL						; Form and write inverted value
@@ -987,13 +1162,13 @@ DOCMP:
 	LD		(HL),B			; Restore original value
 	CALL	NZ,ERR			; Display error if mismatch
 
-NDCONT:
+.NDCONT:
 	INC		HL				; Next address to test
 	LD		A,H
 	OR		L				; HL wrap around to 0?
-	JR		Z,NDCYCLE		; Then continue from beginning of memory
+	JR		Z,.NDCYCLE		; Then continue from beginning of memory
 
-	JR		NDLOP			; Else continue test
+	JR		.NDLOP			; Else continue test
 
 ;--------------------------------------------------------------------------
 ; POUTP <O> - output data to a port
@@ -1002,14 +1177,14 @@ POUTP:
 	CALL	DSPMSG
 	DEFB	'Ou',BIT7+'t'
 
-	LD		C,2
+	LD		C,2				; Read 2 hex digits from command line
 	CALL	AHE0			; Port number in E
 
-	LD		C,2
+	LD		C,2				; Read 2 hex digits from command line
 	CALL	AHE0			; Port to L, data in E
 
 	LD		D,L				; D = port
-	LD		HL,PORT_RW+2	; Form OUT PP RET in memory at HL
+	LD		HL,.PORT_RW+2	; Form OUT PP RET in memory at HL
 	LD		(HL),0xC9		; RET opcode
 	DEC		HL
 	LD		(HL),D			; Output port for OUT instruction
@@ -1030,31 +1205,31 @@ PGM:
 	EX		DE,HL
 	CALL	CRLF
 
-PGLP:
+.PGLP:
 	LD		A,(HL)			; Read memory
 	CALL	PT2				; Display 2 digits
 	LD		A,'-'			; Load dash
 	CALL	PTCN			; Display dash
 
-CRIG:
+.CRIG:
 	CALL	RDCN			; Get user input
 	CP		' '				; Space
-	JR		Z,CON2			; Skip if space
+	JR		Z,.CON2			; Skip if space
 	CP		CR				; Skip if CR
-	JR		NZ,CON1
+	JR		NZ,.CON1
 	CALL	CRLF			; Display CR,LF
-	JR		CON2			; Continue on new line
+	JR		.CON2			; Continue on new line
 
-CON1:
-	EX		DE,HL			; HL -> DE
+.CON1:
+	EX		DE,HL
 	LD		HL,0			; Get 16 bit zero
 	LD		C,2				; Count 2 digits
 	CALL	AHEXNR			; Convert to hex (no read)
 	LD		(HL),E
 
-CON2:
+.CON2:
 	INC		HL				; Next address
-	JR		PGLP
+	JR		.PGLP
 
 ;--------------------------------------------------------------------------
 ; CHKSUM <Q> - compute checksum
@@ -1066,12 +1241,12 @@ CHKSUM:
 	CALL	TAHEX
 	LD		B,0				; Start checksum = 0
 
-CSLOOP:
+.CSLOOP:
 	LD		A,(HL)			; Get data from memory
 	ADD		A,B				; Add to checksum
 	LD		B,A
 	CALL	BMP
-	JR		NZ,CSLOOP		; Repeat loop
+	JR		NZ,.CSLOOP		; Repeat loop
 
 	LD		A,B				; A = checksum
 	JP		PT2				; Display checksum and tail call exit
@@ -1085,13 +1260,13 @@ SDREAD:
 
 	CALL	SD_DETECT		; Check for physical SD card
 	CALL	SD_BOOT			; Boot SD card for block transfers
-	CALL	TAHEX			; HL = source block MSW, DE = source block LSW
+	CALL	TAHEX			; HL -> source block MSW, DE -> source block LSW
 
 ; Push the 32-bit starting block number onto the stack in little-endian order
 	PUSH	HL				; High half in HL
 	PUSH	DE				; Low half in DE
 
-	CALL	AHEX			; DE = destination address
+	CALL	AHEX			; DE -> destination address
 	CALL	SD_CMD17
 	POP		HL				; Remove the block number from the stack
 	POP		HL
@@ -1110,60 +1285,60 @@ SRCH1:
 	DEFB	'Find ',BIT7+'1'
 
 	XOR		A				; Zero flag means one byte search
-	JR		DOSRCH
+	JR		.DOSRCH
 
 SRCH2:
 	CALL	DSPMSG
 	DEFB	'Find ',BIT7+'2'
 							; A returned <> 0 means two byte search
-DOSRCH:
+.DOSRCH:
 	PUSH	AF				; Save one/two byte flag on stack
 	CALL	TAHEX
 
 	PUSH	HL				; Save HL, getting 1st byte to find
-	LD		C,2				; Reading 2 hex digits
+	LD		C,2				; Read 2 hex digits from command line
 	CALL	AHE0
 	EX		DE,HL			; H = code, D = F
 	LD		B,L				; Put code in B
 	POP		HL				; Restore HL
 
-	POP		AF				; A=one/two byte flag
+	POP		AF				; A = one/two byte flag
 	OR		A				; Zero true if one byte search
 	PUSH	AF
-	JR		Z,CONT
+	JR		Z,.CONT
 
 	PUSH	HL				; Save HL, getting 2nd byte to find
-	LD		C,2
+	LD		C,2				; Read 2 hex digits from command line
 	CALL	AHE0
 	EX		DE,HL
 	LD		C,L
 	POP		HL
 
-CONT:
+.CONT:
 	LD		A,(HL)			; Read memory
 	CP		B				; Compare to code
-	JR		NZ,SKP			; Skip if no compare
+	JR		NZ,.SKP			; Skip if no compare
 
 	POP		AF				; A = one/two byte flag
 	OR		A				; Zero true if one byte search
 	PUSH	AF
-	JR		Z,OBCP
+	JR		Z,.OBCP
 
 	INC		HL				; Two byte search
 	LD		A,(HL)
 	DEC		HL
 	CP		C
-	JR		NZ,SKP
+	JR		NZ,.SKP
 
-OBCP:
+.OBCP:
 	INC		HL
 	LD		A,(HL)			; Read next byte
 	DEC		HL				; Decrement address
 	CALL	ERR				; Display data found
 
-SKP:
+.SKP:
 	CALL	BMP				; Check if done
-	JR		NZ,CONT			; Back for more
+	JR		NZ,.CONT		; Back for more
 	POP		AF				; Remove flag saved on stack
 	RET
 
@@ -1177,7 +1352,7 @@ TMEM:
 	CALL	TAHEX			; Read addresses
 	LD		BC,0x5A5A		; Init BC to 01011010,01011010
 
-CYCL:
+.CYCL:
 	LD		A,'.'			; Display '.' before each cycle
 	CALL	PTCN
 	CALL	RNDM
@@ -1185,18 +1360,18 @@ CYCL:
 	PUSH	HL
 	PUSH	DE
 
-TLOP:
+.TLOP:
 	LD		A,H				; Get MSB of address
 	AND		0xF0			; Upper nibble only
-	CP		MONSTART>>8		; Compare to MSB of monitor page
-	JR		Z,SKIPWR		; In monitor, skip write
+	CP		.MONSTART>>8	; Compare to MSB of monitor page
+	JR		Z,.SKIPWR		; In monitor, skip write
 
 	CALL	RNDM
 	LD		(HL),B			; Write in memory
 
-SKIPWR:
+.SKIPWR:
 	CALL	BMP
-	JR		NZ,TLOP			; Repeat loop
+	JR		NZ,.TLOP		; Repeat loop
 
 	POP		DE				; Restore original values
 	POP		HL
@@ -1204,35 +1379,35 @@ SKIPWR:
 	PUSH	HL
 	PUSH	DE
 
-RLOP:
+.RLOP:
 	LD		A,H				; Get MSB of address
 	AND		0xF0			; Upper nibble only
-	CP		MONSTART>>8		; Compare to MSB of monitor page
-	JR		Z,SKIPRD		; In monitor, skip the read
+	CP		.MONSTART>>8	; Compare to MSB of monitor page
+	JR		Z,.SKIPRD		; In monitor, skip the read
 
 	CALL	RNDM			; Generate new sequence
 	LD		A,(HL)			; Read memory
 	CP		B				; Compare memory
 	CALL	NZ,ERR			; Call error routine
 
-SKIPRD:
+.SKIPRD:
 	CALL	BMP
-	JR		NZ,RLOP
+	JR		NZ,.RLOP
 
 	POP		DE
 	POP		HL
 	CALL	PAUSE			; Check for ctrl-c, esc, or space
-	JR		CYCL			; Cycle again
+	JR		.CYCL			; Cycle again
 
 ; This routine generates pseudo-random numbers
 RNDM:
 	LD		A,B				; Look at B
 	AND		10110100B		; Mask bits
 	AND		A				; Clear carry
-	JP		PE,PEVE			; Jump if even
+	JP		PE,.PEVE		; Jump if even
 	SCF
 
-PEVE:
+.PEVE:
 	LD		A,C				; Look at C
 	RLA						; Rotate carry in
 	LD		C,A				; Restore C
@@ -1255,17 +1430,17 @@ SETBRK:
 	LD		HL,DUMPREGS
 	LD		(RST1+1),HL		; Store breakpoint handler address
 
-	LD 		HL,(BP_TABLE)	; Get breakpoint address
+	LD 		HL,(.BP_TABLE)	; Get breakpoint address
 	LD		A,0xCF			; RST 08 opcode
 	CP		(HL)			; Check if another breakpoint is already set
-	JR		NZ,SETCODE		; If not, set new breakpoint
+	JR		NZ,.SETCODE		; If not, set new breakpoint
 
 	CALL	CLRBRK			; Otherwise clear old breakpoint first
 
-SETCODE:
-	LD		(BP_TABLE),DE	; Store BP address in table
+.SETCODE:
+	LD		(.BP_TABLE),DE	; Store BP address in table
 	LD		A,(DE)			; Retrieve byte at this location
-	LD		(BP_TABLE+2),A	; Store byte
+	LD		(.BP_TABLE+2),A	; Store byte
 	LD		A,0xCF			; RST 08 opcode
 	LD		(DE),A			; Replace user byte with RST 08 opcode
 	RET
@@ -1274,23 +1449,23 @@ SETCODE:
 ; CLRCMD <V> - remove breakpoint RST opcode if one is set
 ;--------------------------------------------------------------------------
 CLRCMD:
-	LD		HL,(BP_TABLE)	; Get breakpoint address
+	LD		HL,(.BP_TABLE)	; Get breakpoint address
 	LD		A,0xCF			; RST 08 opcode
 	CP		(HL)			; Check if another breakpoint is already set
-	JR		Z,CLRDSP		; If set, display msg and clear breakpoint
+	JR		Z,.CLRDSP		; If set, display msg and clear breakpoint
 
 	CALL	DSPMSG
-	DEFB	' <No Breakpoint Set',BIT7+'>'
+	DEFB	'No BP se',BIT7+'t'
 
 	RET
 
-CLRDSP:
+.CLRDSP:
 	CALL	DSPMSG
-	DEFB	' <Breakpoint Cleared',BIT7+'>'
+	DEFB	'BP cleare',BIT7+'d'
 
 CLRBRK:
-	LD		HL,(BP_TABLE)	; Get breakpoint address
-	LD		A,(BP_TABLE+2)	; Get original byte
+	LD		HL,(.BP_TABLE)	; Get breakpoint address
+	LD		A,(.BP_TABLE+2)	; Get original byte
 	LD		(HL),A			; Replace original byte
 	RET
 
@@ -1304,15 +1479,15 @@ SDWRT:
 	CALL	SD_DETECT		; Check for physical SD card
 	CALL	SD_BOOT			; Boot SD card for block transfers
 
-	CALL	AHEX			; DE = source address
-	LD		(HLTEMP),DE		;	and save it
+	CALL	AHEX			; DE -> source address
+	LD		(.HLTEMP),DE	;	and save it
 
-	CALL	TAHEX			; HL = destination block MSW, DE = destination block LSW
+	CALL	TAHEX			; HL -> destination block MSW, DE -> destination block LSW
 
 ; Push the 32-bit starting block number onto the stack in little-endian order
 	PUSH	HL				; High half in HL
 	PUSH	DE				; Low half in DE
-	LD		HL,(HLTEMP)		; Restore source address
+	LD		HL,(.HLTEMP)	; Restore source address
 	EX		DE,HL			;	and put in DE
 	CALL	SD_CMD24 
 	POP		HL				; Remove the block number from the stack
@@ -1338,10 +1513,10 @@ BLOAD:
 
 	POP		HL
 
-BLOAD1:
+.BLOAD1:
 	IN		A,(ACTL)		; Read port status
 	AND		RDA				; Data available?
-	JR		Z,BLOAD1		; Loop if not
+	JR		Z,.BLOAD1		; Loop if not
 
 	IN		A,(ADTA)		; Read byte
 	LD		(HL),A			;	and save
@@ -1350,9 +1525,9 @@ BLOAD1:
 	DEC		DE				; Byte counter
 	LD		A,D
 	OR		E				; Check if done
-	JR		NZ,BLOAD1
+	JR		NZ,.BLOAD1
 
-	JP		FLUSH			; Flush console and tail call exit
+	JP		.FLUSH			; Flush console and tail call exit
 
 ;--------------------------------------------------------------------------
 ; BDUMP <Z> - dump a binary file
@@ -1369,15 +1544,15 @@ BDUMP:
 
 	POP		HL
 
-BDLOP:
+.BDLOP:
 	IN		A,(ACTL)		; Read port status
 	AND		RDA				; Data available?
-	JR		Z,BDLOP			; Loop if not
+	JR		Z,.BDLOP		; Loop if not
 
-BDUMP1:
+.BDUMP1:
 	IN		A,(ACTL)		; Read port status
 	AND		TBE				; OK to transmit?
-	JR		Z,BDUMP1		; Loop if not
+	JR		Z,.BDUMP1		; Loop if not
 
 	LD		A,(HL)			; Get byte
 	OUT		(ADTA),A		;	and send
@@ -1386,7 +1561,7 @@ BDUMP1:
 	DEC		DE				; Byte counter
 	LD		A,D
 	OR		E				; Check if done
-	JR		NZ,BDUMP1
+	JR		NZ,.BDUMP1
 	RET
 
 ;**************************************************************************
@@ -1405,7 +1580,12 @@ TAHEX:
 							; Fall into AHEX to get 2nd parameter
 
 ;--------------------------------------------------------------------------
-; AHEX - read up to 4 hex digits to binary, return in DE
+; AHEX - read 4 hex ASCII digits, convert to binary
+; AHE0 - read number in C of ASCII hex digits, convert to binary
+; AHEEXNR - verify ASCII hex digit in A, convert to binary
+;
+; Returns: Display a space, binary value in DE
+; Destroys: A, C, HL
 ;--------------------------------------------------------------------------
 AHEX:
 	LD		C,4				; Count of 4 digits
@@ -1413,7 +1593,7 @@ AHEX:
 AHE0:
 	LD		HL,0			; 16 bit zero
 
-AHE1:
+.AHE1:
 	CALL	RDCN			; Read a byte
 
 ; Verify valid hex digit and convert from ASCII to binary and place in HL
@@ -1421,7 +1601,7 @@ AHEXNR:
 	CP		'0'
 	JP		C,START			; Below '0', abort
 	CP		'9'+1
-	JR		C,ALPH			; '9' or above jump else verify valid alpha digit
+	JR		C,.ALPH			; '9' or above jump else verify valid alpha digit
 
 	AND		0x5F			; Lower to upper case
 	CP		'A'
@@ -1429,7 +1609,7 @@ AHEXNR:
 	CP		'F'+1
 	JP		NC,START		; Below 'A' or above 'F' abort back to START
 
-ALPH:
+.ALPH:
 	ADD		HL,HL			; HL * 2
 	ADD		HL,HL			; HL * 4
 	ADD		HL,HL			; HL * 8
@@ -1439,7 +1619,7 @@ ALPH:
 	ADD		A,L
 	LD		L,A				; Stuff into L
 	DEC		C
-	JR		NZ,AHE1			; Keep reading
+	JR		NZ,.AHE1		; Keep reading
 	EX		DE,HL			; Result in DE
 							; Fall through to display a space
 
@@ -1453,10 +1633,10 @@ SPCE:
 PTCN:
 	PUSH	AF
 
-PTLOP:
+.PTLOP:
 	IN		A,(ACTL)		; Wait for OK to transmit character
 	AND		TBE
-	JR		Z,PTLOP
+	JR		Z,.PTLOP
 
 	POP		AF				; Recover AF
 	AND		0x7F			; Get rid of MSB
@@ -1494,7 +1674,7 @@ BINL:
 	JP		PTCN			; Display alpha, tail call exit
 
 ;--------------------------------------------------------------------------
-; BMP - binary compare address and increment HL. Return zero true if
+; BMP - binary compare address and increment HL. Return zero flag true if
 ;	HL = DE. Once HL = DE, then DE is incremented each time
 ;	so the comparison remains true for subsequent calls
 ; Destroys: A
@@ -1502,12 +1682,12 @@ BINL:
 BMP:
 	LD		A,E				; Compare LSB's of HL,DE
 	SUB		L
-	JR		NZ,GO_ON		; Not equal
+	JR		NZ,.GO_ON		; Not equal
 
 	LD		A,D				; Compare MSB's of HL,DE
-	SBC		A,H				; Gives zero true if equal
+	SBC		A,H				; Gives zero flag true if equal
 
-GO_ON:
+.GO_ON:
 	INC		HL				; Increment HL
 	RET		NZ				; Exit if HL <> DE yet
 
@@ -1551,15 +1731,15 @@ CRLF:
 ;--------------------------------------------------------------------------
 DSPBANK:
 	BIT		7,H				; Get bank if address < 0x8000
-	JR		Z,GETBANK
+	JR		Z,.GETBANK
 	LD		A,0x0F			; Else force bank display to F
-	JR		DMPBANK
+	JR		.DMPBANK
 
-GETBANK:
-	LD 		A,(CBANK)		; Get current bank
+.GETBANK:
+	LD 		A,(.CBANK)		; Get current bank
 
-DMPBANK:
-	PUSH	AF				; Keep A intact
+.DMPBANK:
+	PUSH	AF				; Protect AF
 	CALL	PAUSE			; Check for ctrl-c, esc or space
 	POP		AF
 	CALL	BINL			; Display low nibble
@@ -1574,12 +1754,12 @@ DMPBANK:
 DSPMSG:
 	POP		HL				; HL -> string to display from caller
 
-DSPLOOP:
+.DSPLOOP:
 	LD		A,(HL)			; A = next character to display
 	CALL	PTCN			; Display character
 	OR		(HL)			; MSB set? (last byte)
 	INC		HL				; Point to next character
-	JP		P,DSPLOOP		; No, keep looping
+	JP		P,.DSPLOOP		; No, keep looping
 
 	CALL	SPCE			; Display a trailing space
 	JP		(HL)			; Return past the string
@@ -1590,19 +1770,19 @@ DSPLOOP:
 ;	execution, do a memory dump or set a new breakpoint and then execute
 ;--------------------------------------------------------------------------
 DUMPREGS:
-	LD		(HLTEMP),HL		; Save HL when breakpoint occurred
+	LD		(.HLTEMP),HL	; Save HL when breakpoint occurred
 	EX		(SP),HL			; Transfer SP contents -> HL (return address after breakpoint)
 	DEC		HL				; Adjust back to breakpoint address
-	LD		(PCTEMP),HL		; Save PC when breakpoint occurred
+	LD		(.PCTEMP),HL	; Save PC when breakpoint occurred
 	EX		(SP),HL			; Swap back
 	PUSH	AF				; Save AF
 
 	LD		HL,2			; Skip over AF push above
 	ADD		HL,SP
-	LD		(SPTEMP),HL		; Save SP when breakpoint occurred
+	LD		(.SPTEMP),HL	; Save SP when breakpoint occurred
 
 	CALL	DSPMSG			; Display register/flag status header
-	DEFB	CR,LF,LF,' <Breakpoint Reached>',CR,LF
+	DEFB	CR,LF,LF,'BP reached',CR,LF
 	DEFB	'Bnk  PC  _Flag_  AF   BC   DE   HL   IX   IY   SP '
 	DEFB	'  AF',0x27		; 0x27 = ' character
 	DEFB	'  BC',0x27
@@ -1610,36 +1790,36 @@ DUMPREGS:
 	DEFB	'  HL',0x27
 	DEFB	' @BC @DE @HL @SP',CR,BIT7+LF
 
-	LD		HL,(PCTEMP)
+	LD		HL,(.PCTEMP)
 	CALL	DSPBANK			; Display currently selected 32K RAM bank
 	CALL	SPCE
 	CALL	PTAD1			; Then display PC
 
 	POP		HL				; Transfer AF -> HL pushed on above
-	LD		(AFTEMP),HL
-	LD		(BCTEMP),BC
-	LD		(DETEMP),DE		; Save AF BC DE when breakpoint occurred
+	LD		(.AFTEMP),HL
+	LD		(.BCTEMP),BC
+	LD		(.DETEMP),DE	; Save AF BC DE when breakpoint occurred
 
 ; Display flags from HL (Shown as SZHENC; characters displayed when corresponding flag is set)
 	LD		BC,0x8053		; S - sign (0x80 = 10000000, 0x53 = 'S')
-	CALL	MASKFLG
+	CALL	.MASKFLG
 	LD		BC,0x405A		; Z - zero (0x40 = 01000000, 0x5A = 'Z')
-	CALL	MASKFLG
+	CALL	.MASKFLG
 	LD		BC,0x1048		; H - half carry (0x10 = 00010000, 0x48 = 'H')
-	CALL	MASKFLG
+	CALL	.MASKFLG
 	LD		BC,0x0445		; E - even parity (0x04 = 00000100, 0x45 = 'E')
-	CALL	MASKFLG
+	CALL	.MASKFLG
 	LD		BC,0x024E		; N - add/subtract (0x02 = 00000010, 0x4E = 'N')
-	CALL	MASKFLG
+	CALL	.MASKFLG
 	LD		BC,0x0143		; C - carry (0x01 = 00000001, 0x43 = 'C')
-	CALL	MASKFLG
+	CALL	.MASKFLG
 
 	CALL	SPCE
 	CALL	PTAD1			; Display AF from HL
 
-	LD		BC,(BCTEMP)
-	LD		HL,(HLTEMP)		; Get back BC HL, DE still safe
-	CALL	PTHREE			; Display BC DE HL
+	LD		BC,(.BCTEMP)
+	LD		HL,(.HLTEMP)	; Get back BC HL, DE still safe
+	CALL	.PTHREE			; Display BC DE HL
 
 	PUSH	IX
 	POP		HL				; Transfer IX -> HL
@@ -1649,7 +1829,7 @@ DUMPREGS:
 	POP		HL				; Transfer IY -> HL
 	CALL	PTAD1			; Display IY from HL
 
-	LD		HL,(SPTEMP)		; Get breakpoint SP
+	LD		HL,(.SPTEMP)	; Get breakpoint SP
 	CALL	PTAD1			; Display SP from HL
 
 	EX		AF,AF'			; Swap AF <-> AF'
@@ -1659,20 +1839,20 @@ DUMPREGS:
 	CALL	PTAD1			; Display AF' from HL
 
 	EXX						; Swap 16-bit register pairs
-	CALL	PTHREE			; Display BC' DE' HL'
+	CALL	.PTHREE			; Display BC' DE' HL'
 	EXX						; Swap back
 
-	LD		BC,(BCTEMP)		; Restore BC
+	LD		BC,(.BCTEMP)	; Restore BC
 	LD		A,(BC)
-	CALL	PT2S			; Display contents of BC
+	CALL	.PT2S			; Display contents of BC
 
-	LD		DE,(DETEMP)		; Restore DE
+	LD		DE,(.DETEMP)	; Restore DE
 	LD		A,(DE)
-	CALL	PT2S			; Display contents of DE
+	CALL	.PT2S			; Display contents of DE
 
-	LD		HL,(HLTEMP)		; Restore HL
+	LD		HL,(.HLTEMP)	; Restore HL
 	LD		A,(HL)
-	CALL	PT2S			; Display contents of HL
+	CALL	.PT2S			; Display contents of HL
 
 	POP		HL				; Get contents of SP
 	DEC		SP
@@ -1680,13 +1860,13 @@ DUMPREGS:
 	CALL	PTAD1			; Display contents of SP
 
 	CALL	DSPMSG
-	DEFB	CR,LF,LF,'_Stack Dump_ (last 16 bytes',BIT7+')'
+	DEFB	CR,LF,LF,'_Stack Dump_ (SP+15 bytes',BIT7+')'
 
 	CALL	CRLF
-	LD		HL,(SPTEMP)		; Get breakpoint SP
+	LD		HL,(.SPTEMP)	; Get breakpoint SP
 	LD		B,16			; Show last 16 bytes of the stack
 
-DSTACK:
+.DSTACK:
 	CALL	SPCE
 	CALL	DSPBANK			; Display current RAM bank from address in HL
 	CALL	SPCE
@@ -1699,44 +1879,44 @@ DSTACK:
 
 	INC		HL				; Advance stack address pointer
 	DEC		B				; Adjust counter
-	JR		NZ,DSTACK		; Continue?
+	JR		NZ,.DSTACK		; Continue?
 
 	CALL	CLRCMD			; Clear and display breakpoint cleared
 	CALL	CRLF
 
-SUBMSG:
+.SUBMSG:
 	CALL	DSPMSG
-	DEFB	CR,LF,'<Esc>Abort <Enter>Continue <Space>Dump <LLLL>New Breakpoint?-',BIT7+'>'
+	DEFB	CR,LF,'<Esc>Abort <Enter>Continue <Space>Dump <LLLL>New BP?-',BIT7+'>'
 
-SUBCMD:
+.SUBCMD:
 	LD		C,4				; Count of 4 digits
 	LD		HL,0x0000		; 16 bit zero
 
-AHE2:
+.AHE2:
 	CALL	RDCN			; Read a byte
 
 	CP		ESC
 	JP		Z,START			; Esc?, restart @ main command loop
 
 	CP		' '
-	JR		Z,PREDUMP		; Space?, process DUMP command
+	JR		Z,.PREDUMP		; Space?, process DUMP command
 
 	CP		CR
-	JR		Z,CONTINUE		; Enter?, continue from breakpoint
+	JR		Z,.CONTINUE		; Enter?, continue from breakpoint
 							; Else, process new breakpoint address
 
 	CP		'0'
-	JR		C,SUBMSG		; Below '0', abort back to SUBMSG
+	JR		C,.SUBMSG		; Below '0', abort back to .SUBMSG
 	CP		'9'+1
-	JR		C,ALPH2			; '9' or below jump else verify valid alpha digit
+	JR		C,.ALPH2		; '9' or below jump else verify valid alpha digit
 
 	AND		0x5F			; Lower to upper case
 	CP		'A'
-	JR		C,SUBMSG
+	JR		C,.SUBMSG
 	CP		'F'+1
-	JR		NC,SUBMSG		; Below 'A' or above 'F' abort back to SUBMSG
+	JR		NC,.SUBMSG		; Below 'A' or above 'F' abort back to .SUBMSG
 
-ALPH2:
+.ALPH2:
 	ADD		HL,HL			; HL * 2
 	ADD		HL,HL			; HL * 4
 	ADD		HL,HL			; HL * 8
@@ -1746,26 +1926,27 @@ ALPH2:
 	ADD		A,L
 	LD		L,A				; Stuff into L
 	DEC		C				; Adjust counter
-	JR		NZ,AHE2			; Keep reading
+	JR		NZ,.AHE2		; Keep reading
 
-	LD		(BP_TABLE),HL	; Store BP address in table
+	LD		(.BP_TABLE),HL	; Store BP address in table
 	LD		A,(HL)			; Retrieve byte at this location
-	LD		(BP_TABLE+2),A	; Store byte
+	LD		(.BP_TABLE+2),A	; Store byte
 	LD		A,0xCF			; RST 08 opcode
 	LD		(HL),A			; Replace user byte with RST 08 opcode
 
-CONTINUE:					; Put registers back like they were before breakpoint occurred
-	LD		HL,(AFTEMP)		; Restore AF
+.CONTINUE:					; Put registers back like they were before breakpoint occurred
+	CALL	CRLF
+	LD		HL,(.AFTEMP)	; Restore AF
 	PUSH	HL
 	POP		AF
 
-	LD		BC,(BCTEMP)	
-	LD		DE,(DETEMP)
-	LD		HL,(HLTEMP)		; Restore BC DE HL
+	LD		BC,(.BCTEMP)	
+	LD		DE,(.DETEMP)
+	LD		HL,(.HLTEMP)	; Restore BC DE HL
 							; SP still good at this point
 	RET						; Continue where breakpoint left off
 
-PREDUMP:
+.PREDUMP:
 	PUSH	AF				; Protect AF BC HL
 	PUSH	BC
 	PUSH	HL
@@ -1779,15 +1960,15 @@ PREDUMP:
 	POP		HL
 	POP		BC
 	POP		AF
-	JP		SUBMSG			; Back to SUBMSG
+	JP		.SUBMSG			; Back to .SUBMSG
 
-PT2S:
+.PT2S:
 	CALL	PT2				; Display 2 characters
 	CALL	SPCE			; Display 2 spaces
 	JP		SPCE			; Tail call exit
 
 ; Display BC DE HL in order
-PTHREE:
+.PTHREE:
 	PUSH	HL				; Protect HL
 	PUSH	BC
 	POP		HL				; Transfer BC -> HL
@@ -1798,7 +1979,7 @@ PTHREE:
 	POP		HL				; Get HL back
 	JP		PTAD1			; Display HL and tail call exit
 
-MASKFLG:
+.MASKFLG:
 	LD		A,L				; Get flags from L
 	AND		B				; Flag mask in B
 	LD		A,' '			; Display blank if flag cleared
@@ -1807,11 +1988,11 @@ MASKFLG:
 	JP		PTCN			; Tail call exit
 
 ;--------------------------------------------------------------------------
-; ERR - display the address in HL followed by the value
-;	in B, then the value in A
+; ERR - display the address in HL followed by the value in B, then in A
+; PT2 - display the value in A	
 ;--------------------------------------------------------------------------
 ERR:
-	PUSH	AF				; Save A
+	PUSH	AF				; Protect AF
 	CALL	PTAD			; Display address
 	LD		A,B				; Display B
 	CALL	PT2
@@ -1819,7 +2000,7 @@ ERR:
 	POP		AF
 
 PT2:						; Display A
-	PUSH	AF
+	PUSH	AF				; Protect AF
 	CALL	BINH			; High 4 bits
 	POP		AF
 	JP		BINL			; Low 4 bits, tail call exit
@@ -1830,7 +2011,7 @@ PT2:						; Display A
 ;	flag (C) is set (non-zero)
 ;--------------------------------------------------------------------------
 GETCHAR:
-	PUSH	BC				; Save BC
+	PUSH	BC				; Protect BC
 
 	CALL	GETCON			; Read character from console
 							; Process new character in A
@@ -1838,20 +2019,21 @@ GETCHAR:
 	LD		B,A				; Save character in B
 	LD		A,C				; Echo flag (C) set?
 	OR		A
-	JR		Z,NOECHO		; No echo
+	JR		Z,.NOECHO		; No echo
 
 	LD		A,B				; A = character to send
-	POP		BC				; Restore BC
+	POP		BC
 	JP		PTCN			; Display character and tail call exit
 
-NOECHO:
+.NOECHO:
 	LD		A,B				; A = byte read
-	POP		BC				; Restore BC
+	POP		BC
 	RET
 
 ;--------------------------------------------------------------------------
-; IBYTE - read two ASCII hex bytes and return binary value in E
-; Destroys: A, D
+; IBYTE - read two ASCII hex bytes and return binary value in E, add binary
+;   value to running checksum in D
+; Destroys: A
 ;--------------------------------------------------------------------------
 IBYTE:
 	CALL	GETCHAR			; Get a character
@@ -1868,7 +2050,7 @@ IBYTE:
 	ADD		A,E				; Combine MSN and LSN
 	LD		E,A				; Save in E
 	ADD		A,D				; Add character to checksum
-	LD		D,A
+	LD		D,A				; Save checksum back in D
 	RET
 
 ;--------------------------------------------------------------------------
@@ -1881,18 +2063,19 @@ PAUSE:
 	CP		' '
 	RET		NZ				; Return if not space or abort
 
-PLOOP:
+.PLOOP:
 	CALL	CNTLC			; Loop here until space or abort pressed
 	CP		' '
-	JR		NZ,PLOOP
+	JR		NZ,.PLOOP
 	RET
 
 ;--------------------------------------------------------------------------
-; PTAD - display the address in HL
+; PTAD - display CR/LF and the address in HL
+; PTAD1 - display the address in HL
 ; Destroys: A
 ;--------------------------------------------------------------------------
 PTAD:
-	CALL	CRLF			; Display CR,LF
+	CALL	CRLF
 
 PTAD1:
 	CALL	PAUSE			; Check for ctrl-c, esc, or space
@@ -1936,7 +2119,7 @@ SD_ERROR:
 	CALL	DSPMSG
 	DEFB	'- Error with SD car',BIT7+'d',CR,LF
 
-	JP		START			; Restart @ command loop
+	JP		MONIT			; Restart monitor
 
 ;--------------------------------------------------------------------------
 ; SD_DETECT- check if physical SD card inserted
@@ -1951,7 +2134,7 @@ SD_DETECT:
 	CALL	DSPMSG
 	DEFB	'- SD slot empt',BIT7+'y',CR,LF
 
-	JP		START			; Restart @ command loop
+	JP		MONIT			; Restart monitor
 
 ;**************************************************************************
 ;
@@ -2020,7 +2203,7 @@ READ_BLOCKS:
 
 ; Count the block
 	DEC		B
-	JR		Z,.RB_SUCCESS	; Note that A = 0 here = success!
+	JR		Z,.RB_SUCCESS	; Note that A == 0 here = success!
 
 ; Increment the target address by 512
 	INC		D
@@ -2062,7 +2245,7 @@ READ_BLOCKS:
 .SD_R1_LOOP:
 	CALL	SPI_READ8		; Read a byte into A (and a copy in E as well)
 	AND		BIT7			; Is the MSB set to 1?
-	JR		Z,.SD_R1_DONE	; If MSB = 0 then we are done
+	JR		Z,.SD_R1_DONE	; If MSB == 0 then we are done
 	DJNZ	.SD_R1_LOOP		; Else try again until the retry count runs out
 
 .SD_R1_DONE:
@@ -2094,7 +2277,7 @@ READ_BLOCKS:
 
 ;--------------------------------------------------------------------------
 ; SSEL = HI (de-assert)
-; Wait at least 1 msec after power up
+; Wait at least 1msec after power up
 ; Send at least 74 (80) SCLK rising edges
 ; Destroys: A, B, DE
 ;--------------------------------------------------------------------------
@@ -2157,7 +2340,7 @@ SD_BOOT:
 	LD		DE,.SD_SCRATCH
 	CALL	SD_CMD58
 
-; Check that CCS = 1 here to indicate that we have an HC/XC card
+; Check that CCS == 1 here to indicate that we have an HC/XC card
 	LD		A,(.SD_SCRATCH+1)
 	AND		0x40			; CCS bit is here (See spec p275)
 	RET		NZ				; Good to go
@@ -2368,7 +2551,7 @@ SD_CMD17:
 ; Assert the SSEL line
 	CALL	SPI_SSEL_TRUE
 
-	; Send the command 
+; Send the command 
 	PUSH	IY
 	POP		HL				; HL = IY = cmd_buffer address
 	LD		B,6				; B = command buffer length
@@ -2399,7 +2582,7 @@ SD_CMD17:
 	JR		.SD_CMD17_ERR	; No flag ever arrived
 
 .SD_CMD17_TOKEN:
-	CP		0xFE			; A = data block token? (else is junk from the SD)
+	CP		0xFE			; A == data block token? (else is junk from the SD)
 	JR		Z,.SD_CMD17_TOKOK
 
 	JR		.SD_CMD17_ERR
@@ -2531,7 +2714,7 @@ SD_CMD24:
 	OR		C
 	JR		NZ,.SD_CMD24_BLK
 
-; Read for up to 250 mSec waiting on a completion status
+; Read for up to 250msec waiting on a completion status
 	LD		BC,0xAB00			; Wait a potentially /long/ time for the write to complete
 
 ; [n] = number of T states, 57 T states @ 10Mhz = 5.7us. 250msec ~ 0xAB00 loop cycles
@@ -2761,18 +2944,18 @@ SPI_WRITE_STR:
 ;
 ;**************************************************************************
 
-; Temporary storage area (20D bytes)
-GPIO_OUT_CACHE:	DEFB	GPIO_OUT_SD_MOSI|GPIO_OUT_SD_SSEL|GPIO_OUT_PRN_STB
-CBANK:			DEFB	0	; Current low 32K RAM bank selected 0-E
-
-AFTEMP:			DEFS	2	; AF temp
-BCTEMP:			DEFS	2	; BC temp
-DETEMP:			DEFS	2	; DE temp
-HLTEMP:			DEFS	2	; HL temp
-PCTEMP:			DEFS	2	; PC temp
-SPTEMP:			DEFS	2	; SP temp
-BP_TABLE:		DEFS	3	; Breakpoint location first, then byte at loc
-PORT_RW:		DEFS	3	; Area for port read/write commands
+; Temporary storage area (21D bytes)
+GPIO_OUT_CACHE:	DEFB	GPIO_OUT_SD_MOSI|GPIO_OUT_SD_SSEL|GPIO_OUT_PRN_STB|(.BANK<<4)
+.CBANK:			DEFB	.BANK	; Current low 32K RAM bank selected 0-E
+.AFTEMP:		DEFS	2		; AF temp
+.BCTEMP:		DEFS	2		; BC temp
+.DETEMP:		DEFS	2		; DE temp
+.HLTEMP:		DEFS	2		; HL temp
+.PCTEMP:		DEFS	2		; PC temp
+.SPTEMP:		DEFS	2		; SP temp
+.PARTITION:		DEFS	1		; Partition number to boot
+.BP_TABLE:		DEFS	3		; Breakpoint location first, then byte at loc
+.PORT_RW:		DEFS	3		; Area for port read/write commands
 
 ;--------------------------------------------------------------------------
 ; This marks the end of the data that is copied from FLASH into SRAM
